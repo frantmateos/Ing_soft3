@@ -1,0 +1,49 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  name: MiPool   
+stages:
+  - stage: CI
+    displayName: "Build & Test CI"
+    jobs:
+      # ===========================
+      # FRONTEND JOB
+      # ===========================
+      - job: BuildFront
+        displayName: "Build Frontend (React)"
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '18.x'
+            displayName: "Set Node.js version"
+          
+          - script: |
+              cd frontend
+              npm ci
+              npm run build
+            displayName: "Install & Build Frontend"
+
+          - publish: front/build
+            artifact: drop_front
+            displayName: "Publish Frontend Artifact"
+
+      # ===========================
+      # BACKEND JOB
+      # ===========================
+      - job: BuildBack
+        displayName: "Build Backend (Go)"
+        steps:
+          - script: |
+              cd Golang
+              go version
+              go mod tidy
+              go test ./... -v
+              go build -o app
+            displayName: "Test & Build Backend"
+
+          - publish: Golang/app
+            artifact: drop_back
+            displayName: "Publish Backend Artifact"

@@ -5,9 +5,12 @@ import (
 	controller "Golang/controller"
 	"Golang/middleware"
 	service "Golang/service"
+	"log"
 	"net/http"
+	os "os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 type Controller interface {
@@ -21,12 +24,16 @@ type Controller interface {
 
 func main() {
 
-	sqlconfig := repo.MySQLConfig{
-		Name: "X",
-		User: "X",
-		Pass: "X",
-		Host: "X",
-	}
+	if err := godotenv.Load(); err != nil {
+        log.Println("No .env file found")
+    }
+
+    sqlconfig := repo.MySQLConfig{
+        Name: os.Getenv("DB_NAME"),
+        User: os.Getenv("DB_USER"),
+        Pass: os.Getenv("DB_PASS"),
+        Host: os.Getenv("DB_HOST"),
+    }
 
 	mainRepo := repo.NewSql(sqlconfig)
 	Service := service.NewService(mainRepo)

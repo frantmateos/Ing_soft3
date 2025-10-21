@@ -62,6 +62,10 @@ func main() {
 	router.GET("/users/:id", middleware.AuthMiddleware(), Controller.GetUserById)
 	router.PUT("/users", middleware.AuthMiddleware(), Controller.UpdateUser)
 
-	router.Run(":8080")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" 
+	}
+	router.Run(":" + port)
 
 }

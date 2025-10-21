@@ -4,15 +4,12 @@ trigger:
       - main
 
 pool:
-  name: MiPool   # ⚙️ tu agente, o usá 'vmImage: "ubuntu-latest"' si querés el agente hospedado
+  name: MiPool   # O usa 'vmImage: "ubuntu-latest"' si preferís agente hospedado
 
 variables:
-  # ⚙️ Cambiá con tu nombre de conexión creada en Azure DevOps (Service Connection)
-  azureSubscription: 'tp05-connection'
-
-  # ⚙️ Nombres de las Web Apps QA en Azure
-  webAppFrontendQA: 'webapp-QA-2025'   # ejemplo: webapp-tp05-qa-mateos
-  webAppBackendQA: 'BACKEND-QA-2025'       # ejemplo: api-tp05-qa-mateos
+  azureSubscription: 'tp05-connection'   # ⚙️ nombre de tu Service Connection
+  webAppFrontendQA: 'webapp-QA-2025'     # ⚙️ nombre exacto de tu Web App Frontend QA
+  webAppBackendQA: 'BACKEND-QA-2025'     # ⚙️ nombre exacto de tu Web App Backend QA
 
 stages:
   # ===========================
@@ -36,17 +33,30 @@ stages:
               npm ci
               npm run build
 
-              # 👉 Agregamos routes.json para que Azure sirva bien la SPA
-              echo '{
-                "routes": [
-                  {
-                    "route": "/*",
-                    "serve": "/index.html",
-                    "statusCode": 200
-                  }
-                ]
-              }' > build/routes.json
-            displayName: "Install, Build & Add routes.json"
+              # 🔧 Crear archivo web.config para servir correctamente la SPA
+              echo '<?xml version="1.0" encoding="utf-8"?>
+              <configuration>
+                <system.webServer>
+                  <rewrite>
+                    <rules>
+                      <rule name="ReactRoutes" stopProcessing="true">
+                        <match url=".*" />
+                        <conditions logicalGrouping="MatchAll">
+                          <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+                          <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
+                        </conditions>
+                        <action type="Rewrite" url="/index.html" />
+                      </rule>
+                    </rules>
+                  </rewrite>
+                  <staticContent>
+                    <mimeMap fileExtension=".json" mimeType="application/json" />
+                    <mimeMap fileExtension=".js" mimeType="application/javascript" />
+                    <mimeMap fileExtension=".css" mimeType="text/css" />
+                  </staticContent>
+                </system.webServer>
+              </configuration>' > build/web.config
+            displayName: "Install, Build & Add web.config for Azure SPA"
 
           - task: ArchiveFiles@2
             displayName: "Zip frontend build"
@@ -60,7 +70,6 @@ stages:
           - publish: $(Build.ArtifactStagingDirectory)/frontend.zip
             artifact: drop_front
             displayName: "Publish Frontend Artifact"
-
 
       # ---------- BACKEND ----------
       - job: BuildBack
@@ -118,7 +127,7 @@ stages:
                   inputs:
                     azureSubscription: '$(azureSubscription)'
                     appType: 'webApp'
-                    appName: '$(webAppFrontendQA)'  # ⚙️ tu nombre real de WebApp QA del frontend
+                    appName: '$(webAppFrontendQA)'
                     package: '$(Pipeline.Workspace)/drop_front/frontend.zip'
 
       # ---------- DEPLOY BACKEND ----------
@@ -137,5 +146,5 @@ stages:
                   inputs:
                     azureSubscription: '$(azureSubscription)'
                     appType: 'webApp'
-                    appName: '$(webAppBackendQA)'   # ⚙️ tu nombre real de WebApp QA del backend
+                    appName: '$(webAppBackendQA)'
                     package: '$(Pipeline.Workspace)/drop_back/backend.zip'

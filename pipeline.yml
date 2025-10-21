@@ -4,38 +4,61 @@ trigger:
       - main
 
 pool:
-  name: MiPool   
+  name: MiPool   # ⚙️ tu agente, o usá 'vmImage: "ubuntu-latest"' si querés el agente hospedado
+
+variables:
+  # ⚙️ Cambiá con tu nombre de conexión creada en Azure DevOps (Service Connection)
+  azureSubscription: 'AS-TP5-2025'
+
+  # ⚙️ Nombres de las Web Apps QA en Azure
+  webAppFrontendQA: 'webapp-QA-2025'   # ejemplo: webapp-tp05-qa-mateos
+  webAppBackendQA: BACKEND-QA-2025'       # ejemplo: api-tp05-qa-mateos
+
 stages:
+  # ===========================
+  # STAGE 1: BUILD (CI)
+  # ===========================
   - stage: CI
     displayName: "Build & Test CI"
     jobs:
-      # ===========================
-      # FRONTEND JOB
-      # ===========================
+
+      # ---------- FRONTEND ----------
       - job: BuildFront
         displayName: "Build Frontend (React)"
         steps:
           - task: NodeTool@0
             inputs:
-              versionSpec: '16.x'
+              versionSpec: '18.x'
             displayName: "Set Node.js version"
-          
+
           - script: |
               cd frontend
               npm ci
               npm run build
             displayName: "Install & Build Frontend"
 
-          - publish: frontend/build
+          - task: ArchiveFiles@2
+            displayName: "Zip frontend build"
+            inputs:
+              rootFolderOrFile: 'frontend/build'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/frontend.zip'
+              replaceExistingArchive: true
+
+          - publish: $(Build.ArtifactStagingDirectory)/frontend.zip
             artifact: drop_front
             displayName: "Publish Frontend Artifact"
 
-      # ===========================
-      # BACKEND JOB
-      # ===========================
+      # ---------- BACKEND ----------
       - job: BuildBack
         displayName: "Build Backend (Go)"
         steps:
+          - task: GoTool@0
+            inputs:
+              version: '1.22.x'
+            displayName: "Use Go 1.22"
+
           - script: |
               cd Golang
               go version
@@ -44,6 +67,63 @@ stages:
               go build -o app
             displayName: "Test & Build Backend"
 
-          - publish: Golang/app
+          - task: ArchiveFiles@2
+            displayName: "Zip backend binary"
+            inputs:
+              rootFolderOrFile: 'Golang/app'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/backend.zip'
+              replaceExistingArchive: true
+
+          - publish: $(Build.ArtifactStagingDirectory)/backend.zip
             artifact: drop_back
             displayName: "Publish Backend Artifact"
+
+
+  # ===========================
+  # STAGE 2: DEPLOY TO QA (CD)
+  # ===========================
+  - stage: DeployQA
+    displayName: "Deploy to QA Environment"
+    dependsOn: CI
+    condition: succeeded()
+    jobs:
+
+      # ---------- DEPLOY FRONTEND ----------
+      - deployment: DeployFrontendQA
+        displayName: "Deploy Frontend QA"
+        environment: 'QA'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop_front
+
+                - task: AzureWebApp@1
+                  displayName: "Deploy Frontend to QA Web App"
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webApp'
+                    appName: '$(webAppFrontendQA)'  # ⚙️ tu nombre real de WebApp QA del frontend
+                    package: '$(Pipeline.Workspace)/drop_front/frontend.zip'
+
+      # ---------- DEPLOY BACKEND ----------
+      - deployment: DeployBackendQA
+        displayName: "Deploy Backend QA"
+        environment: 'QA'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop_back
+
+                - task: AzureWebApp@1
+                  displayName: "Deploy Backend to QA Web App"
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webApp'
+                    appName: '$(webAppBackendQA)'   # ⚙️ tu nombre real de WebApp QA del backend
+                    package: '$(Pipeline.Workspace)/drop_back/backend.zip'

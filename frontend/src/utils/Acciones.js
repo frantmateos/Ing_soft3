@@ -4,6 +4,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export async function login(userData) {
   console.log(userData)
   try {
+    console.log("url: ",BACKEND_URL );
     const response = await axios.post(`${BACKEND_URL}/users/login`, userData, {
       credentials: "include",
     });

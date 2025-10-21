@@ -8,7 +8,7 @@ pool:
 
 variables:
   # ⚙️ Cambiá con tu nombre de conexión creada en Azure DevOps (Service Connection)
-  azureSubscription: 'AS-TP5-2025'
+  azureSubscription: 'tp05-connection'
 
   # ⚙️ Nombres de las Web Apps QA en Azure
   webAppFrontendQA: 'webapp-QA-2025'   # ejemplo: webapp-tp05-qa-mateos

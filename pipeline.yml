@@ -4,12 +4,12 @@ trigger:
       - main
 
 pool:
-  name: MiPool   # O usa 'vmImage: "ubuntu-latest"' si preferís agente hospedado
+  name: MiPool   # o usar 'vmImage: "ubuntu-latest"' si preferís el agente hospedado
 
 variables:
-  azureSubscription: 'tp05-connection'   # ⚙️ nombre de tu Service Connection
-  webAppFrontendQA: 'webapp-QA-2025'     # ⚙️ nombre exacto de tu Web App Frontend QA
-  webAppBackendQA: 'BACKEND-QA-2025'     # ⚙️ nombre exacto de tu Web App Backend QA
+  azureSubscription: 'tp05-connection'     # nombre de tu Service Connection
+  webAppFrontendQA: 'webapp-QA-2025'       # nombre de tu Web App Frontend QA
+  webAppBackendQA: 'BACKEND-QA-2025'       # nombre de tu Web App Backend QA
 
 stages:
   # ===========================
@@ -32,11 +32,11 @@ stages:
               set -e
               cd frontend
 
-              # Build React
-              npm ci
+              echo "📦 Installing and building React app..."
+              npm install
               npm run build
 
-              # Crear un servidor simple para servir la SPA
+              echo "🧩 Creating simple Node server to serve the SPA..."
               cat > build/server.js <<'EOF'
               const express = require("express");
               const path = require("path");
@@ -51,10 +51,10 @@ stages:
                 res.sendFile(path.join(__dirname, "index.html"));
               });
 
-              app.listen(port, () => console.log(`Frontend running on port ${port}`));
+              app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
               EOF
 
-              # Crear package.json mínimo
+              echo "🧾 Creating minimal package.json for Azure WebApp runtime..."
               cat > build/package.json <<'EOF'
               {
                 "name": "frontend-spa",
@@ -70,10 +70,10 @@ stages:
               }
               EOF
 
-              # Instalar dependencias necesarias
+              echo "📦 Installing dependencies for runtime..."
               cd build
-              npm ci --only=production
-            displayName: "Build React + add server.js & package.json"
+              npm install --production
+            displayName: "Build React + Add server.js and package.json"
 
           - task: ArchiveFiles@2
             displayName: "Zip frontend build (with Node server)"
@@ -87,7 +87,6 @@ stages:
           - publish: $(Build.ArtifactStagingDirectory)/frontend.zip
             artifact: drop_front
             displayName: "Publish Frontend Artifact"
-
 
       # ---------- BACKEND ----------
       - job: BuildBack

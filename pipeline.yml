@@ -12,7 +12,7 @@ variables:
 
   # ⚙️ Nombres de las Web Apps QA en Azure
   webAppFrontendQA: 'webapp-QA-2025'   # ejemplo: webapp-tp05-qa-mateos
-  webAppBackendQA: BACKEND-QA-2025'       # ejemplo: api-tp05-qa-mateos
+  webAppBackendQA: 'BACKEND-QA-2025'       # ejemplo: api-tp05-qa-mateos
 
 stages:
   # ===========================

@@ -29,37 +29,54 @@ stages:
             displayName: "Set Node.js version"
 
           - script: |
+              set -e
               cd frontend
+
+              # Build React
               npm ci
               npm run build
 
-              # 🔧 Crear archivo web.config para servir correctamente la SPA
-              echo '<?xml version="1.0" encoding="utf-8"?>
-              <configuration>
-                <system.webServer>
-                  <rewrite>
-                    <rules>
-                      <rule name="ReactRoutes" stopProcessing="true">
-                        <match url=".*" />
-                        <conditions logicalGrouping="MatchAll">
-                          <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
-                          <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
-                        </conditions>
-                        <action type="Rewrite" url="/index.html" />
-                      </rule>
-                    </rules>
-                  </rewrite>
-                  <staticContent>
-                    <mimeMap fileExtension=".json" mimeType="application/json" />
-                    <mimeMap fileExtension=".js" mimeType="application/javascript" />
-                    <mimeMap fileExtension=".css" mimeType="text/css" />
-                  </staticContent>
-                </system.webServer>
-              </configuration>' > build/web.config
-            displayName: "Install, Build & Add web.config for Azure SPA"
+              # Crear un servidor simple para servir la SPA
+              cat > build/server.js <<'EOF'
+              const express = require("express");
+              const path = require("path");
+              const compression = require("compression");
+              const app = express();
+              const port = process.env.PORT || 8080;
+
+              app.use(compression());
+              app.use(express.static(path.join(__dirname)));
+
+              app.get("*", (_, res) => {
+                res.sendFile(path.join(__dirname, "index.html"));
+              });
+
+              app.listen(port, () => console.log(`Frontend running on port ${port}`));
+              EOF
+
+              # Crear package.json mínimo
+              cat > build/package.json <<'EOF'
+              {
+                "name": "frontend-spa",
+                "version": "1.0.0",
+                "private": true,
+                "scripts": {
+                  "start": "node server.js"
+                },
+                "dependencies": {
+                  "compression": "^1.7.4",
+                  "express": "^4.18.2"
+                }
+              }
+              EOF
+
+              # Instalar dependencias necesarias
+              cd build
+              npm ci --only=production
+            displayName: "Build React + add server.js & package.json"
 
           - task: ArchiveFiles@2
-            displayName: "Zip frontend build"
+            displayName: "Zip frontend build (with Node server)"
             inputs:
               rootFolderOrFile: 'frontend/build'
               includeRootFolder: false
@@ -70,6 +87,7 @@ stages:
           - publish: $(Build.ArtifactStagingDirectory)/frontend.zip
             artifact: drop_front
             displayName: "Publish Frontend Artifact"
+
 
       # ---------- BACKEND ----------
       - job: BuildBack

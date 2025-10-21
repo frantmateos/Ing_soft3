@@ -165,3 +165,5 @@ stages:
                     appType: 'webApp'
                     appName: '$(webAppBackendQA)'
                     package: '$(Pipeline.Workspace)/drop_back/backend.zip'
+                    appSettings: |
+                      -name WEBSITE_STARTUP_FILE -value "./app"

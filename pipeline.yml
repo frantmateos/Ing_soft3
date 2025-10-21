@@ -28,14 +28,25 @@ stages:
         steps:
           - task: NodeTool@0
             inputs:
-              versionSpec: '16.x'
+              versionSpec: '18.x'
             displayName: "Set Node.js version"
 
           - script: |
               cd frontend
               npm ci
               npm run build
-            displayName: "Install & Build Frontend"
+
+              # 👉 Agregamos routes.json para que Azure sirva bien la SPA
+              echo '{
+                "routes": [
+                  {
+                    "route": "/*",
+                    "serve": "/index.html",
+                    "statusCode": 200
+                  }
+                ]
+              }' > build/routes.json
+            displayName: "Install, Build & Add routes.json"
 
           - task: ArchiveFiles@2
             displayName: "Zip frontend build"
@@ -49,6 +60,7 @@ stages:
           - publish: $(Build.ArtifactStagingDirectory)/frontend.zip
             artifact: drop_front
             displayName: "Publish Frontend Artifact"
+
 
       # ---------- BACKEND ----------
       - job: BuildBack

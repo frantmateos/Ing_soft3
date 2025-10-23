@@ -7,10 +7,9 @@ pool:
   name: MiPool   # o usar 'vmImage: "ubuntu-latest"' si preferís el agente hospedado
 
 variables:
-  azureSubscription: 'tp05-connection'        # Service connection configurada
-  webAppFrontendQA: 'webapp-QA-2025'          # Nombre exacto de tu WebApp Frontend
-  webAppBackendQA: 'BACKEND-QA-2025'          # Nombre exacto de tu WebApp Backend
-  REACT_APP_BACKEND_URL: 'https://backend-qa-2025.azurewebsites.net'
+  azureSubscription: 'tp05-connection'     # nombre de tu Service Connection
+  webAppFrontendQA: 'webapp-QA-2025'       # nombre de tu Web App Frontend QA
+  webAppBackendQA: 'BACKEND-QA-2025'       # nombre de tu Web App Backend QA
 
 stages:
   # ===========================
@@ -35,7 +34,6 @@ stages:
 
               echo "📦 Installing and building React app..."
               npm install
-              echo "🌍 Using backend URL: $REACT_APP_BACKEND_URL"
               npm run build
 
               echo "🧩 Creating simple Node server to serve the SPA..."
@@ -72,18 +70,16 @@ stages:
               }
               EOF
 
-              echo "📦 Installing runtime dependencies..."
+              echo "📦 Installing dependencies for runtime..."
               cd build
               npm install --production
             displayName: "Build React + Add server.js and package.json"
-            env:
-              REACT_APP_BACKEND_URL: $(REACT_APP_BACKEND_URL)
 
           - task: ArchiveFiles@2
             displayName: "Zip frontend build (with Node server)"
             inputs:
               rootFolderOrFile: 'frontend/build'
-              includeRootFolder: true   # ✅ Incluye package.json + node_modules
+              includeRootFolder: false
               archiveType: 'zip'
               archiveFile: '$(Build.ArtifactStagingDirectory)/frontend.zip'
               replaceExistingArchive: true
@@ -122,6 +118,7 @@ stages:
             artifact: drop_back
             displayName: "Publish Backend Artifact"
 
+
   # ===========================
   # STAGE 2: DEPLOY TO QA (CD)
   # ===========================
@@ -149,9 +146,6 @@ stages:
                     appType: 'webApp'
                     appName: '$(webAppFrontendQA)'
                     package: '$(Pipeline.Workspace)/drop_front/frontend.zip'
-                    appSettings: |
-                      - name WEBSITE_NODE_DEFAULT_VERSION -value 16.x
-                      - name WEBSITE_STARTUP_FILE -value server.js
 
       # ---------- DEPLOY BACKEND ----------
       - deployment: DeployBackendQA

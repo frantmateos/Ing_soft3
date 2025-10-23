@@ -150,8 +150,8 @@ stages:
                     appName: '$(webAppFrontendQA)'
                     package: '$(Pipeline.Workspace)/drop_front/frontend.zip'
                     appSettings: |
-                      -name WEBSITE_NODE_DEFAULT_VERSION -value 16.x
-                      -name WEBSITE_STARTUP_FILE -value server.js
+                      - name WEBSITE_NODE_DEFAULT_VERSION -value 16.x
+                      - name WEBSITE_STARTUP_FILE -value server.js
 
       # ---------- DEPLOY BACKEND ----------
       - deployment: DeployBackendQA

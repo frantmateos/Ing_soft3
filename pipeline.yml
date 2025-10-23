@@ -128,24 +128,24 @@ stages:
     condition: succeeded()
     jobs:
 
-    # ---------- DEPLOY FRONTEND ----------
-    - deployment: DeployFrontendQA
-      displayName: "Deploy Frontend QA"
-      environment: 'QA'
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              - download: current
-                artifact: drop_front
+      # ---------- DEPLOY FRONTEND ----------
+      - deployment: DeployFrontendQA
+        displayName: "Deploy Frontend QA"
+        environment: 'QA'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop_front
 
-              - task: AzureWebApp@1
-                displayName: "Deploy Frontend to QA Web App"
-                inputs:
-                  azureSubscription: '$(azureSubscription)'
-                  appType: 'webApp'
-                  appName: '$(webAppFrontendQA)'
-                  package: '$(Pipeline.Workspace)/drop_front/frontend.zip'
+                - task: AzureWebApp@1
+                  displayName: "Deploy Frontend to QA Web App"
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webApp'
+                    appName: '$(webAppFrontendQA)'
+                    package: '$(Pipeline.Workspace)/drop_front/frontend.zip'
       # ---------- DEPLOY BACKEND ----------
       - deployment: DeployBackendQA
         displayName: "Deploy Backend QA"

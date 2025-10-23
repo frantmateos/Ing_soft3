@@ -4,7 +4,7 @@ trigger:
       - main
 
 pool:
-  name: MiPool   # o usar 'vmImage: "ubuntu-latest"' si preferís el agente hospedado
+  name: MiPool   # o usar 'vmImage: "ubuntu-latest"
 
 variables:
   azureSubscription: 'tp05-connection'     # nombre de tu Service Connection

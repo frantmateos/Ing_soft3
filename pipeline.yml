@@ -194,11 +194,10 @@ stages:
         environment:
           name: 'PROD'
           resourceType: 'VirtualMachine'
-          # ✅ Esto fuerza aprobación manual antes del deploy
           checks:
             - approval:
                 approvers:
-                  - "tu-email@empresa.com"  # Cambiar por tu cuenta de Azure DevOps
+                  - "2221769@ucc.edu.ar"  
         strategy:
           runOnce:
             deploy:

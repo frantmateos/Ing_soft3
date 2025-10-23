@@ -41,7 +41,17 @@ func main() {
 	router := gin.Default()
 
 	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "https://webapp-qa-2025.azurewebsites.net")
+		allowedOrigins := []string{
+			"https://webapp-qa-2025.azurewebsites.net",
+			"https://webapp-produ-2025.azurewebsites.net",
+		}
+		for _, o := range allowedOrigins {
+			if o == origin {
+				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+				c.Writer.Header().Set("Vary", "Origin") // evita problemas de caché
+				break
+			}
+		}
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Authorization, Content-Type, X-Auth-Token")
 		c.Writer.Header().Set("Access-Control-Expose-Headers", "Content-Length")

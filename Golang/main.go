@@ -41,6 +41,8 @@ func main() {
 	router := gin.Default()
 
 	router.Use(func(c *gin.Context) {
+		origin := c.Request.Header.Get("Origin")
+
 		allowedOrigins := []string{
 			"https://webapp-qa-2025.azurewebsites.net",
 			"https://webapp-produ-2025.azurewebsites.net",

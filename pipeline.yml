@@ -10,6 +10,7 @@ variables:
   azureSubscription: 'tp05-connection'     # nombre de tu Service Connection
   webAppFrontendQA: 'webapp-QA-2025'       # nombre de tu Web App Frontend QA
   webAppBackendQA: 'BACKEND-QA-2025'       # nombre de tu Web App Backend QA
+  REACT_APP_BACKEND_URL: 'https:/backend-qa-2025.azurewebsites.net'
 
 stages:
   # ===========================
@@ -74,6 +75,8 @@ stages:
               cd build
               npm install --production
             displayName: "Build React + Add server.js and package.json"
+            env:
+              REACT_APP_BACKEND_URL: $(REACT_APP_BACKEND_URL)
 
           - task: ArchiveFiles@2
             displayName: "Zip frontend build (with Node server)"

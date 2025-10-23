@@ -191,7 +191,7 @@ stages:
       # ---------- DEPLOY FRONTEND ----------
       - deployment: DeployFrontendPROD
         displayName: "Deploy Frontend PROD"
-        environment:'PRODU'
+        environment: 'PRODU'
         strategy:
           runOnce:
             deploy:

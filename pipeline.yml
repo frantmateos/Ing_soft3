@@ -215,6 +215,7 @@ stages:
       - deployment: DeployBackendPROD
         displayName: "Deploy Backend PROD"
         environment: 'PRODU'
+        strategy:
           runOnce:
             deploy:
               steps:

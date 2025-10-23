@@ -191,13 +191,7 @@ stages:
       # ---------- DEPLOY FRONTEND ----------
       - deployment: DeployFrontendPROD
         displayName: "Deploy Frontend PROD"
-        environment:
-          name: 'PROD'
-          resourceType: 'VirtualMachine'
-          checks:
-            - approval:
-                approvers:
-                  - "2221769@ucc.edu.ar"  
+        environment:'PRODU'
         strategy:
           runOnce:
             deploy:
@@ -220,14 +214,7 @@ stages:
       # ---------- DEPLOY BACKEND ----------
       - deployment: DeployBackendPROD
         displayName: "Deploy Backend PROD"
-        environment:
-          name: 'PROD'
-          resourceType: 'VirtualMachine'
-          checks:
-            - approval:
-                approvers:
-                  - "2221769@ucc.edu.ar"
-        strategy:
+        environment: 'PRODU'
           runOnce:
             deploy:
               steps:

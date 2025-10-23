@@ -206,10 +206,6 @@ stages:
                     appType: 'webApp'
                     appName: '$(webAppFrontendPROD)'
                     package: '$(Pipeline.Workspace)/drop_front/frontend.zip'
-                    appSettings: |
-                      -name WEBSITE_NODE_DEFAULT_VERSION -value 16.x
-                      -name WEBSITE_STARTUP_FILE -value server.js
-                      -name REACT_APP_BACKEND_URL -value https://backend-produ-2025.azurewebsites.net
 
       # ---------- DEPLOY BACKEND ----------
       - deployment: DeployBackendPROD

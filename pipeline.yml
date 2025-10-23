@@ -128,24 +128,24 @@ stages:
     condition: succeeded()
     jobs:
 
-      # ---------- DEPLOY FRONTEND ----------
-      - job: DeployFrontendQA
-        displayName: "Deploy Frontend QA"
-        steps:
-          - checkout: self
+    # ---------- DEPLOY FRONTEND ----------
+    - deployment: DeployFrontendQA
+      displayName: "Deploy Frontend QA"
+      environment: 'QA'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - download: current
+                artifact: drop_front
 
-          - task: NodeTool@0
-            inputs:
-              versionSpec: '16.x'
-            displayName: "Set Node.js version"
-
-          - task: AzureWebApp@1
-            displayName: "Deploy React app (source code) to QA"
-            inputs:
-              azureSubscription: '$(azureSubscription)'
-              appType: 'webApp'
-              appName: '$(webAppFrontendQA)'
-              package: 'frontend' 
+              - task: AzureWebApp@1
+                displayName: "Deploy Frontend to QA Web App"
+                inputs:
+                  azureSubscription: '$(azureSubscription)'
+                  appType: 'webApp'
+                  appName: '$(webAppFrontendQA)'
+                  package: '$(Pipeline.Workspace)/drop_front/frontend.zip'
       # ---------- DEPLOY BACKEND ----------
       - deployment: DeployBackendQA
         displayName: "Deploy Backend QA"

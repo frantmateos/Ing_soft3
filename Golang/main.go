@@ -48,11 +48,12 @@ func main() {
 			"https://webapp-produ-2025.azurewebsites.net",
 		}
 		for _, o := range allowedOrigins {
-			if o == origin {
+			if strings.HasPrefix(origin, o) {
 				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-				c.Writer.Header().Set("Vary", "Origin") // evita problemas de caché
+				c.Writer.Header().Set("Vary", "Origin")
 				break
 			}
+
 		}
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Authorization, Content-Type, X-Auth-Token")

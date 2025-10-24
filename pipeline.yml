@@ -163,7 +163,7 @@ stages:
               cd Golang
               go mod tidy
               go test ./... -v
-              GOOS=linux GOARCH=amd64 go build -o app
+              GOOS=linux GOARCH=amd64 go build -o ../app
             displayName: "Test & Build Backend"
 
           - task: ArchiveFiles@2

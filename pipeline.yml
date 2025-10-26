@@ -169,7 +169,7 @@ stages:
           - task: ArchiveFiles@2
             displayName: "Zip backend binary"
             inputs:
-              rootFolderOrFile: 'Golang/app'
+              rootFolderOrFile: 'app'
               includeRootFolder: false
               archiveType: 'zip'
               archiveFile: '$(Build.ArtifactStagingDirectory)/backend.zip'

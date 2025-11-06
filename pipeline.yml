@@ -30,7 +30,6 @@ stages:
         steps:
           - task: NodeTool@0
             inputs:
-              # ### <<< MODIFICADO >>> ### Usamos 18.x para compatibilidad con tests
               versionSpec: '18.x' 
             displayName: "Set Node.js version (18.x)"
 
@@ -38,7 +37,7 @@ stages:
               set -e
               cd frontend
               echo "📦 Installing frontend dependencies..."
-              npm install # O 'npm ci'
+              npm ci
 
               echo "🧪 Running frontend tests..."
               # ### <<< AÑADIDO >>> ### Ejecutamos los tests
@@ -50,7 +49,6 @@ stages:
               npm run build
 
               echo "🧩 Adding Node server for Azure..."
-              # ... (El resto de tu script para crear server.js y package.json) ...
               cat > build/server.js <<'EOF'
               const express = require("express");
               const path = require("path");
@@ -75,7 +73,6 @@ stages:
               EOF
               cd build
               npm install --production
-            # ### <<< MODIFICADO >>> ### Cambiamos el nombre para reflejar que también testea
             displayName: "Install, Test & Build Frontend for QA" 
             # ### <<< AÑADIDO >>> ### Asegura que el pipeline falle si 'npm test' falla
             failOnStderr: true 

@@ -4,49 +4,53 @@ trigger:
       - main
 
 pool:
-  name: MiPool   # o usar 'vmImage: "ubuntu-latest"'
+  name: MiPool  # o usar 'vmImage: "ubuntu-latest"'
 
 variables:
   azureSubscription: 'tp05-connection'
-
-  # ---------- QA ----------
+  # ... (tus otras variables QA/PROD) ...
   webAppFrontendQA: 'webapp-QA-2025'
   webAppBackendQA: 'BACKEND-QA-2025'
   REACT_APP_BACKEND_URL_QA: 'https://backend-qa-2025.azurewebsites.net'
-
-  # ---------- PRODUCCIÓN ----------
   webAppFrontendPROD: 'webapp-PRODU-2025'
   webAppBackendPROD: 'BACKEND-PRODU-2025'
   REACT_APP_BACKEND_URL_PROD: 'https://backend-produ-2025.azurewebsites.net'
 
-
 stages:
   # ===========================
-  # STAGE 1: BUILD FRONT & BACK
+  # STAGE 1: BUILD & TEST FRONT & BACK  ### <<< MODIFICADO >>> ###
   # ===========================
-  - stage: Build
-    displayName: "Build Frontend & Backend"
+  - stage: BuildAndTest  ### <<< MODIFICADO >>> ###
+    displayName: "Build, Test Frontend & Backend" ### <<< MODIFICADO >>> ###
     jobs:
 
-      # ---------- BUILD FRONTEND QA ----------
-      - job: BuildFrontQA
-        displayName: "Build Frontend (QA)"
+      # ---------- BUILD & TEST FRONTEND QA ---------- ### <<< MODIFICADO >>> ###
+      - job: BuildAndTestFrontQA ### <<< MODIFICADO >>> ###
+        displayName: "Build & Test Frontend (QA)" ### <<< MODIFICADO >>> ###
         steps:
           - task: NodeTool@0
             inputs:
-              versionSpec: '16.x'
-            displayName: "Set Node.js version"
+              # ### <<< MODIFICADO >>> ### Usamos 18.x para compatibilidad con tests
+              versionSpec: '18.x' 
+            displayName: "Set Node.js version (18.x)"
 
           - script: |
               set -e
               cd frontend
+              echo "📦 Installing frontend dependencies..."
+              npm install # O 'npm ci'
+
+              echo "🧪 Running frontend tests..."
+              # ### <<< AÑADIDO >>> ### Ejecutamos los tests
+              npm test -- --watchAll=false 
+
               echo "🌍 Building React app for QA..."
               echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_QA)" > .env
               cat .env
-              npm install
               npm run build
 
               echo "🧩 Adding Node server for Azure..."
+              # ... (El resto de tu script para crear server.js y package.json) ...
               cat > build/server.js <<'EOF'
               const express = require("express");
               const path = require("path");
@@ -58,7 +62,6 @@ stages:
               app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
               app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
               EOF
-
               cat > build/package.json <<'EOF'
               {
                 "name": "frontend-spa",
@@ -70,10 +73,12 @@ stages:
                 }
               }
               EOF
-
               cd build
               npm install --production
-            displayName: "Build Frontend for QA"
+            # ### <<< MODIFICADO >>> ### Cambiamos el nombre para reflejar que también testea
+            displayName: "Install, Test & Build Frontend for QA" 
+            # ### <<< AÑADIDO >>> ### Asegura que el pipeline falle si 'npm test' falla
+            failOnStderr: true 
 
           - task: ArchiveFiles@2
             displayName: "Zip Frontend QA build"
@@ -90,14 +95,16 @@ stages:
 
 
       # ---------- BUILD FRONTEND PROD ----------
+      # (Dejamos este job como estaba, usualmente no se testea de nuevo para PROD)
       - job: BuildFrontPROD
         displayName: "Build Frontend (Production)"
         steps:
           - task: NodeTool@0
             inputs:
+               # Dejamos 16.x aquí si es la versión con la que quieres construir para PROD
               versionSpec: '16.x'
-            displayName: "Set Node.js version"
-
+            displayName: "Set Node.js version (16.x)" 
+          # ... (El resto de los pasos de BuildFrontPROD sin cambios) ...
           - script: |
               set -e
               cd frontend
@@ -119,7 +126,6 @@ stages:
               app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
               app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
               EOF
-
               cat > build/package.json <<'EOF'
               {
                 "name": "frontend-spa",
@@ -131,11 +137,9 @@ stages:
                 }
               }
               EOF
-
               cd build
               npm install --production
             displayName: "Build Frontend for Production"
-
           - task: ArchiveFiles@2
             displayName: "Zip Frontend PROD build"
             inputs:
@@ -144,32 +148,40 @@ stages:
               archiveType: 'zip'
               archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-prod.zip'
               replaceExistingArchive: true
-
           - publish: $(Build.ArtifactStagingDirectory)/frontend-prod.zip
             artifact: drop_front_prod
             displayName: "Publish Frontend PROD Artifact"
 
 
-      # ---------- BUILD BACKEND ----------
-      - job: BuildBack
-        displayName: "Build Backend (Go)"
+      # ---------- BUILD & TEST BACKEND ---------- ### <<< MODIFICADO >>> ###
+      - job: BuildAndTestBack ### <<< MODIFICADO >>> ###
+        displayName: "Build & Test Backend (Go)" ### <<< MODIFICADO >>> ###
         steps:
           - task: GoTool@0
             inputs:
-              version: '1.22.5'
-            displayName: "Use Go 1.22.5"
+              # ### <<< MODIFICADO >>> ### Asegúrate que sea tu versión
+              version: '1.21' # O la versión que estés usando localmente
+            displayName: "Use Go version"
 
+          # ### <<< MODIFICADO >>> ### Combinamos Tidy, Test y Build en un script
           - script: |
               cd Golang
-              go mod tidy
-              go test ./... -v
-              GOOS=linux GOARCH=amd64 go build -o ../app
-            displayName: "Test & Build Backend"
+              echo "📦 Tidying Go modules..."
+              go mod tidy 
+              echo "🧪 Running Go tests..."
+              # Usamos './...' para buscar tests en todas las subcarpetas de Golang
+              # Usamos '-v' para ver qué tests corren
+              go test ./... -v 
+              echo "🔨 Building Go binary for Linux..."
+              GOOS=linux GOARCH=amd64 go build -o ../app # Construye el binario en la raíz
+            displayName: "Tidy, Test & Build Backend"
+            # ### <<< AÑADIDO >>> ### Falla si 'go test' falla
+            failOnStderr: true 
 
           - task: ArchiveFiles@2
             displayName: "Zip backend binary"
             inputs:
-              rootFolderOrFile: 'app'
+              rootFolderOrFile: 'app' # El binario 'app' en la raíz del repo
               includeRootFolder: false
               archiveType: 'zip'
               archiveFile: '$(Build.ArtifactStagingDirectory)/backend.zip'
@@ -185,9 +197,11 @@ stages:
   # ===========================
   - stage: DeployQA
     displayName: "🚀 Deploy to QA Environment"
-    dependsOn: Build
+    # ### <<< MODIFICADO >>> ### Depende de la nueva stage
+    dependsOn: BuildAndTest 
     condition: succeeded()
     jobs:
+      # ... (Tus jobs de DeployFrontendQA y DeployBackendQA sin cambios) ...
       - deployment: DeployFrontendQA
         displayName: "Deploy Frontend QA"
         environment: 'QA'
@@ -204,7 +218,6 @@ stages:
                     appType: 'webApp'
                     appName: '$(webAppFrontendQA)'
                     package: '$(Pipeline.Workspace)/drop_front_qa/frontend-qa.zip'
-
       - deployment: DeployBackendQA
         displayName: "Deploy Backend QA"
         environment: 'QA'
@@ -233,6 +246,7 @@ stages:
     dependsOn: DeployQA
     condition: succeeded()
     jobs:
+      # ... (Tus jobs de DeployFrontendPROD y DeployBackendPROD sin cambios) ...
       - deployment: DeployFrontendPROD
         displayName: "Deploy Frontend PROD"
         environment: 'PRODU'
@@ -249,7 +263,6 @@ stages:
                     appType: 'webApp'
                     appName: '$(webAppFrontendPROD)'
                     package: '$(Pipeline.Workspace)/drop_front_prod/frontend-prod.zip'
-
       - deployment: DeployBackendPROD
         displayName: "Deploy Backend PROD"
         environment: 'PRODU'

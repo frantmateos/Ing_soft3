@@ -4,7 +4,7 @@ trigger:
       - main
 
 pool:
-  name: MiPool  # o vmImage: 'ubuntu-latest' si usas Microsoft-hosted
+  name: MiPool  # o vmImage: 'ubuntu-latest' si usas hosted
 
 variables:
   azureSubscription: 'tp05-connection'
@@ -14,10 +14,11 @@ variables:
   webAppFrontendPROD: 'webapp-PRODU-2025'
   webAppBackendPROD: 'BACKEND-PRODU-2025'
   REACT_APP_BACKEND_URL_PROD: 'https://backend-produ-2025.azurewebsites.net'
-  NODE_VERSION: '16.x'   # <-- Fija Node 16 LTS para evitar ERR_OSSL_EVP_UNSUPPORTED
+  NODE_VERSION: '18.x'
   GO_VERSION: '1.22.1'
 
 stages:
+
 # ===========================
 # STAGE 1: BUILD & TEST
 # ===========================
@@ -51,6 +52,9 @@ stages:
             echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_QA)" >> .env
             echo "Usando .env:"
             cat .env
+
+            # Evitar que alguna lib con engines estrictos corte la instalación
+            npm config set engine-strict false
 
             echo "📦 npm ci"
             npm ci
@@ -89,9 +93,8 @@ stages:
             cd build
             npm install --production
           displayName: "Install, Test & Build Frontend (QA)"
-          # Si decides usar Node 18, descomenta env:
-          # env:
-          #   NODE_OPTIONS: --openssl-legacy-provider
+          env:
+            NODE_OPTIONS: --openssl-legacy-provider
 
         - task: ArchiveFiles@2
           displayName: "Zip Frontend QA"
@@ -133,6 +136,8 @@ stages:
             echo "Usando .env:"
             cat .env
 
+            npm config set engine-strict false
+
             echo "📦 npm ci"
             npm ci
 
@@ -167,9 +172,8 @@ stages:
             cd build
             npm install --production
           displayName: "Build Frontend (PROD)"
-          # Si decides usar Node 18, descomenta env:
-          # env:
-          #   NODE_OPTIONS: --openssl-legacy-provider
+          env:
+            NODE_OPTIONS: --openssl-legacy-provider
 
         - task: ArchiveFiles@2
           displayName: "Zip Frontend PROD"

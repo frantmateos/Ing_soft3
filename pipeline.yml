@@ -36,19 +36,27 @@ stages:
           - script: |
               set -e
               cd frontend
+
+              # --- INICIO DE LA CORRECCIÓN ---
+              echo "Setting NODE_OPTIONS to use legacy OpenSSL provider"
+              # Esto soluciona el error 'ERR_OSSL_EVP_UNSUPPORTED' con Node 18+
+              export NODE_OPTIONS=--openssl-legacy-provider
+              # --- FIN DE LA CORRECCIÓN ---
+
               echo "📦 Installing frontend dependencies..."
-              npm install
+              npm ci 
+
+              echo "FIX: Forzando la instalación de una versión de axios compatible..."
+              npm install axios@0.27.2 --save-exact
 
               echo "🧪 Running frontend tests..."
-              # ### <<< AÑADIDO >>> ### Ejecutamos los tests
               npm test -- --watchAll=false 
 
               echo "🌍 Building React app for QA..."
-              echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_QA)" > .env
-              cat .env
               npm run build
 
               echo "🧩 Adding Node server for Azure..."
+              # ... (El resto de tu script para crear server.js y package.json) ...
               cat > build/server.js <<'EOF'
               const express = require("express");
               const path = require("path");
@@ -74,21 +82,7 @@ stages:
               cd build
               npm install --production
             displayName: "Install, Test & Build Frontend for QA" 
-            # ### <<< AÑADIDO >>> ### Asegura que el pipeline falle si 'npm test' falla
-            failOnStderr: true 
-
-          - task: ArchiveFiles@2
-            displayName: "Zip Frontend QA build"
-            inputs:
-              rootFolderOrFile: 'frontend/build'
-              includeRootFolder: false
-              archiveType: 'zip'
-              archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-qa.zip'
-              replaceExistingArchive: true
-
-          - publish: $(Build.ArtifactStagingDirectory)/frontend-qa.zip
-            artifact: drop_front_qa
-            displayName: "Publish Frontend QA Artifact"
+            failOnStderr: true
 
 
       # ---------- BUILD FRONTEND PROD ----------

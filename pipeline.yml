@@ -160,7 +160,7 @@ stages:
           - task: GoTool@0
             inputs:
               # ### <<< MODIFICADO >>> ### Asegúrate que sea tu versión
-              version: '1.21.x' # O la versión que estés usando localmente
+              version: '1.22.1' # O la versión que estés usando localmente
             displayName: "Use Go version"
 
           # ### <<< MODIFICADO >>> ### Combinamos Tidy, Test y Build en un script

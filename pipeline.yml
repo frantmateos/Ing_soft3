@@ -183,10 +183,23 @@ stages:
   - job: BuildAndTestBack
     displayName: "Build & Test Backend (Go)"
     steps:
+
+    - checkout: self
+      fetchDepth: 0
     - task: GoTool@0
       inputs:
         version: '1.22.1'
       displayName: "Use Go version"
+
+    - task: SonarCloudPrepare@3
+      inputs:
+        SonarQube: 'SonarCloud'
+        organization: 'frantmateos'
+        scannerMode: 'dotnet'
+        projectKey: 'frantmateos_Ing_soft3'
+        projectName: 'Ing_soft3'
+
+
     - task: CmdLine@2
       displayName: "Tidy, Test & Build Backend"
       inputs:
@@ -199,6 +212,16 @@ stages:
           echo "🔨 Building Go binary for Linux..."
           GOOS=linux GOARCH=amd64 go build -o ../app
         failOnStderr: true
+
+    - task: SonarCloudAnalyze@3
+      displayName: "Run SonarCloud Analysis"
+      inputs:
+        jdkversion: 'JAVA_HOME_17_X64'    
+
+    - task: SonarCloudPublish@3
+      displayName: "Publish SonarCloud Results"
+      inputs:
+          pollingTimeoutSec: '300'
     - task: ArchiveFiles@2
       displayName: "Zip backend binary"
       inputs:

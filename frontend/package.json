@@ -46,5 +46,8 @@
     "transformIgnorePatterns": [
       "node_modules/(?!axios)/"
     ]
+  },
+  "devDependencies": {
+    "cypress": "^15.6.0"
   }
 }

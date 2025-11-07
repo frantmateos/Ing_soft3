@@ -31,6 +31,7 @@ stages:
   jobs:
 
   # ---------- FRONTEND QA (FIXED) ----------
+    # ---------- FRONTEND QA (ARREGLADO) ----------
   - job: BuildAndTestFrontQA
     displayName: "Build & Test Frontend (QA)"
     steps:
@@ -43,8 +44,12 @@ stages:
       displayName: "Install, Test & Build Frontend for QA"
       inputs:
         script: |
-          set -e
+          # No usamos 'set -e' para que no aborte por warnings de npm
           cd frontend
+
+          echo "Node/npm:"
+          node -v
+          npm -v
 
           echo "CI=true" > .env
           echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_QA)" >> .env
@@ -56,18 +61,37 @@ stages:
           npm config set audit false
           npm config set fund false
 
-          echo "📦 npm ci"
-          if ! npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm; then
-            echo "npm ci falló. Reintentando con npm install limpio…"
+          echo "📦 Intento 1: npm ci (tolerante)"
+          npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm
+          INSTALL_EXIT=$?
+
+          if [ $INSTALL_EXIT -ne 0 ]; then
+            echo "npm ci falló (exit=$INSTALL_EXIT). Fallback a npm install limpio…"
             rm -rf node_modules package-lock.json
             npm install --no-audit --no-fund --legacy-peer-deps --unsafe-perm
+            INSTALL_EXIT=$?
+          fi
+
+          if [ $INSTALL_EXIT -ne 0 ]; then
+            echo "❌ Falló la instalación de dependencias (exit=$INSTALL_EXIT)"
+            exit $INSTALL_EXIT
           fi
 
           echo "🧪 Running frontend tests..."
           npm test -- --watchAll=false
+          TEST_EXIT=$?
+          if [ $TEST_EXIT -ne 0 ]; then
+            echo "❌ Tests fallidos (exit=$TEST_EXIT)"
+            exit $TEST_EXIT
+          fi
 
           echo "🌍 Building React app for QA..."
           npm run build
+          BUILD_EXIT=$?
+          if [ $BUILD_EXIT -ne 0 ]; then
+            echo "❌ Build fallido (exit=$BUILD_EXIT)"
+            exit $BUILD_EXIT
+          fi
 
           echo "🧩 Adding Node server for Azure..."
           cat > build/server.js <<'EOF'
@@ -97,6 +121,7 @@ stages:
           cd build
           npm install --production --no-audit --no-fund
       env:
+        # Necesario si tu build usa Webpack <5 / react-scripts antiguos en Node 18
         NODE_OPTIONS: --openssl-legacy-provider
 
     - task: ArchiveFiles@2
@@ -113,6 +138,7 @@ stages:
       inputs:
         path: $(Build.ArtifactStagingDirectory)/frontend-qa.zip
         artifactName: drop_front_qa
+
 
   # ---------- FRONTEND PROD (TU VERSIÓN QUE FUNCIONA) ----------
   - job: BuildFrontPROD

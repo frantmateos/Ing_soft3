@@ -214,6 +214,13 @@ stages:
           echo "🔨 Building Go binary for Linux..."
           GOOS=linux GOARCH=amd64 go build -o ../app
         failOnStderr: true
+    
+    - task: JavaToolInstaller@0
+      displayName: "Install Java 17 for SonarCloud"
+      inputs:
+        versionSpec: '17'
+        jdkArchitecture: 'x64'
+        jdkSourceOption: 'AzureStorage'
 
     - task: SonarCloudAnalyze@3
       displayName: "Run SonarCloud Analysis"

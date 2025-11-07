@@ -1,333 +1,315 @@
 trigger:
   branches:
     include:
-      - main
+    - main
 
 pool:
-  name: MiPool  # o vmImage: 'ubuntu-latest'
+  name: MiPool
 
 variables:
-  azureSubscription: 'tp05-connection'
-  webAppFrontendQA: 'webapp-QA-2025'
-  webAppBackendQA: 'BACKEND-QA-2025'
-  REACT_APP_BACKEND_URL_QA: 'https://backend-qa-2025.azurewebsites.net'
-  webAppFrontendPROD: 'webapp-PRODU-2025'
-  webAppBackendPROD: 'BACKEND-PRODU-2025'
-  REACT_APP_BACKEND_URL_PROD: 'https://backend-produ-2025.azurewebsites.net'
-  NODE_VERSION: '18.x'
-  GO_VERSION: '1.22.1'
+- name: azureSubscription
+  value: 'tp05-connection'
+- name: webAppFrontendQA
+  value: 'webapp-QA-2025'
+- name: webAppBackendQA
+  value: 'BACKEND-QA-2025'
+- name: REACT_APP_BACKEND_URL_QA
+  value: 'https://backend-qa-2025.azurewebsites.net'
+- name: webAppFrontendPROD
+  value: 'webapp-PRODU-2025'
+- name: webAppBackendPROD
+  value: 'BACKEND-PRODU-2025'
+- name: REACT_APP_BACKEND_URL_PROD
+  value: 'https://backend-produ-2025.azurewebsites.net'
 
 stages:
-
 # ===========================
 # STAGE 1: BUILD & TEST
 # ===========================
 - stage: BuildAndTest
-  displayName: "Build & Test Frontend + Backend"
+  displayName: "Build, Test Frontend & Backend"
   jobs:
 
-    # ---------- FRONTEND QA ----------
-    - job: FrontendQA
-      displayName: "Install, Test & Build Frontend (QA)"
-      steps:
-        - task: NodeTool@0
-          displayName: "Use Node $(NODE_VERSION)"
-          inputs:
-            versionSpec: '$(NODE_VERSION)'
+  # ---------- FRONTEND QA (FIXED) ----------
+  - job: BuildAndTestFrontQA
+    displayName: "Build & Test Frontend (QA)"
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '18.x'
+      displayName: "Set Node.js version (18.x)"
 
-        - script: |
-            node -v
-            npm -v
-          displayName: "Node/npm versions"
+    - task: CmdLine@2
+      displayName: "Install, Test & Build Frontend for QA"
+      inputs:
+        script: |
+          set -e
+          cd frontend
 
-        - task: Cache@2
-          displayName: "Cache npm (frontend)"
-          inputs:
-            key: 'npm | "$(Agent.OS)" | frontend/package-lock.json'
-            path: '$(Build.SourcesDirectory)/frontend/node_modules'
-            restoreKeys: |
-              npm | "$(Agent.OS)" |
-              npm |
+          echo "CI=true" > .env
+          echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_QA)" >> .env
+          echo "Usando .env:" && cat .env
 
-        - script: |
-            set -e
-            cd frontend
+          echo "Config npm para CI robusto"
+          npm config set engine-strict false
+          npm config set legacy-peer-deps true
+          npm config set audit false
+          npm config set fund false
 
-            echo "CI=true" > .env
-            echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_QA)" >> .env
-            echo "Usando .env:" && cat .env
+          echo "📦 npm ci"
+          if ! npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm; then
+            echo "npm ci falló. Reintentando con npm install limpio…"
+            rm -rf node_modules package-lock.json
+            npm install --no-audit --no-fund --legacy-peer-deps --unsafe-perm
+          fi
 
-            echo "Config npm para CI robusto"
-            npm config set engine-strict false
-            npm config set legacy-peer-deps true
-            npm config set audit false
-            npm config set fund false
+          echo "🧪 Running frontend tests..."
+          npm test -- --watchAll=false
 
-            echo "📦 npm ci (con flags duros)"
-            if ! npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm; then
-              echo "npm ci falló. Reintentando con npm install limpio…"
-              rm -rf node_modules package-lock.json
-              npm install --no-audit --no-fund --legacy-peer-deps --unsafe-perm
-            fi
+          echo "🌍 Building React app for QA..."
+          npm run build
 
-            echo "🧪 npm test"
-            npm test -- --watchAll=false
+          echo "🧩 Adding Node server for Azure..."
+          cat > build/server.js <<'EOF'
+          const express = require("express");
+          const path = require("path");
+          const compression = require("compression");
+          const app = express();
+          const port = process.env.PORT || 8080;
+          app.use(compression());
+          app.use(express.static(path.join(__dirname)));
+          app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
+          app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
+          EOF
 
-            echo "🌍 npm run build (QA)"
-            npm run build
-
-            echo "🧩 Node server para App Service"
-            cat > build/server.js <<'EOF'
-            const express = require("express");
-            const path = require("path");
-            const compression = require("compression");
-            const app = express();
-            const port = process.env.PORT || 8080;
-            app.use(compression());
-            app.use(express.static(path.join(__dirname)));
-            app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
-            app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
-            EOF
-
-            cat > build/package.json <<'EOF'
-            {
-              "name": "frontend-spa",
-              "version": "1.0.0",
-              "scripts": { "start": "node server.js" },
-              "dependencies": {
-                "express": "^4.18.2",
-                "compression": "^1.7.4"
-              }
+          cat > build/package.json <<'EOF'
+          {
+            "name": "frontend-spa",
+            "version": "1.0.0",
+            "scripts": { "start": "node server.js" },
+            "dependencies": {
+              "express": "^4.18.2",
+              "compression": "^1.7.4"
             }
-            EOF
+          }
+          EOF
 
-            cd build
-            npm install --production --no-audit --no-fund
-          displayName: "Install, Test & Build Frontend (QA)"
-          env:
-            NODE_OPTIONS: --openssl-legacy-provider
+          cd build
+          npm install --production --no-audit --no-fund
+      env:
+        NODE_OPTIONS: --openssl-legacy-provider
 
-        - task: ArchiveFiles@2
-          displayName: "Zip Frontend QA"
-          inputs:
-            rootFolderOrFile: 'frontend/build'
-            includeRootFolder: false
-            archiveType: 'zip'
-            archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-qa.zip'
-            replaceExistingArchive: true
+    - task: ArchiveFiles@2
+      displayName: "Zip Frontend QA build"
+      inputs:
+        rootFolderOrFile: 'frontend/build'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-qa.zip'
+        replaceExistingArchive: true
 
-        - publish: $(Build.ArtifactStagingDirectory)/frontend-qa.zip
-          artifact: drop_front_qa
-          displayName: "Publish Frontend QA Artifact"
+    - task: ecdc45f6-832d-4ad9-b52b-ee49e94659be@1
+      displayName: "Publish Frontend QA Artifact"
+      inputs:
+        path: $(Build.ArtifactStagingDirectory)/frontend-qa.zip
+        artifactName: drop_front_qa
 
-    # ---------- FRONTEND PROD ----------
-    - job: FrontendPROD
-      displayName: "Build Frontend (PROD)"
-      steps:
-        - task: NodeTool@0
-          displayName: "Use Node $(NODE_VERSION)"
-          inputs:
-            versionSpec: '$(NODE_VERSION)'
+  # ---------- FRONTEND PROD (TU VERSIÓN QUE FUNCIONA) ----------
+  - job: BuildFrontPROD
+    displayName: "Build Frontend (Production)"
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '16.x'
+      displayName: "Set Node.js version (16.x)"
 
-        - script: |
-            node -v
-            npm -v
-          displayName: "Node/npm versions"
+    - task: CmdLine@2
+      displayName: "Build Frontend for Production"
+      inputs:
+        script: |
+          set -e
+          cd frontend
+          echo "🌍 Building React app for Production..."
+          echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_PROD)" > .env
+          cat .env
+          npm install
+          npm run build
 
-        - task: Cache@2
-          displayName: "Cache npm (frontend)"
-          inputs:
-            key: 'npm | "$(Agent.OS)" | frontend/package-lock.json'
-            path: '$(Build.SourcesDirectory)/frontend/node_modules'
-            restoreKeys: |
-              npm | "$(Agent.OS)" |
-              npm |
+          echo "🧩 Adding Node server for Azure..."
+          cat > build/server.js <<'EOF'
+          const express = require("express");
+          const path = require("path");
+          const compression = require("compression");
+          const app = express();
+          const port = process.env.PORT || 8080;
+          app.use(compression());
+          app.use(express.static(path.join(__dirname)));
+          app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
+          app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
+          EOF
 
-        - script: |
-            set -e
-            cd frontend
-
-            echo "CI=true" > .env
-            echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_PROD)" >> .env
-            echo "Usando .env:" && cat .env
-
-            echo "Config npm para CI robusto"
-            npm config set engine-strict false
-            npm config set legacy-peer-deps true
-            npm config set audit false
-            npm config set fund false
-
-            echo "📦 npm ci (con flags duros)"
-            if ! npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm; then
-              echo "npm ci falló. Reintentando con npm install limpio…"
-              rm -rf node_modules package-lock.json
-              npm install --no-audit --no-fund --legacy-peer-deps --unsafe-perm
-            fi
-
-            echo "🌍 npm run build (PROD)"
-            npm run build
-
-            echo "🧩 Node server para App Service"
-            cat > build/server.js <<'EOF'
-            const express = require("express");
-            const path = require("path");
-            const compression = require("compression");
-            const app = express();
-            const port = process.env.PORT || 8080;
-            app.use(compression());
-            app.use(express.static(path.join(__dirname)));
-            app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
-            app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
-            EOF
-
-            cat > build/package.json <<'EOF'
-            {
-              "name": "frontend-spa",
-              "version": "1.0.0",
-              "scripts": { "start": "node server.js" },
-              "dependencies": {
-                "express": "^4.18.2",
-                "compression": "^1.7.4"
-              }
+          cat > build/package.json <<'EOF'
+          {
+            "name": "frontend-spa",
+            "version": "1.0.0",
+            "scripts": { "start": "node server.js" },
+            "dependencies": {
+              "express": "^4.18.2",
+              "compression": "^1.7.4"
             }
-            EOF
+          }
+          EOF
 
-            cd build
-            npm install --production --no-audit --no-fund
-          displayName: "Build Frontend (PROD)"
-          env:
-            NODE_OPTIONS: --openssl-legacy-provider
+          cd build
+          npm install --production
 
-        - task: ArchiveFiles@2
-          displayName: "Zip Frontend PROD"
-          inputs:
-            rootFolderOrFile: 'frontend/build'
-            includeRootFolder: false
-            archiveType: 'zip'
-            archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-prod.zip'
-            replaceExistingArchive: true
+    - task: ArchiveFiles@2
+      displayName: "Zip Frontend PROD build"
+      inputs:
+        rootFolderOrFile: 'frontend/build'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-prod.zip'
+        replaceExistingArchive: true
 
-        - publish: $(Build.ArtifactStagingDirectory)/frontend-prod.zip
-          artifact: drop_front_prod
-          displayName: "Publish Frontend PROD Artifact"
+    - task: ecdc45f6-832d-4ad9-b52b-ee49e94659be@1
+      displayName: "Publish Frontend PROD Artifact"
+      inputs:
+        path: $(Build.ArtifactStagingDirectory)/frontend-prod.zip
+        artifactName: drop_front_prod
 
-    # ---------- BACKEND (Go) ----------
-    - job: Backend
-      displayName: "Build & Test Backend (Go)"
-      steps:
-        - task: GoTool@0
-          inputs:
-            version: '$(GO_VERSION)'
-          displayName: "Use Go $(GO_VERSION)"
-
-        - script: |
-            set -e
-            cd Golang
-            echo "📦 go mod tidy"
-            go mod tidy
-            echo "🧪 go test ./... -v"
-            go test ./... -v
-            echo "🔨 go build (linux/amd64)"
-            GOOS=linux GOARCH=amd64 go build -o ../app
-          displayName: "Tidy, Test & Build Backend"
-
-        - task: ArchiveFiles@2
-          displayName: "Zip backend binary"
-          inputs:
-            rootFolderOrFile: 'app'
-            includeRootFolder: false
-            archiveType: 'zip'
-            archiveFile: '$(Build.ArtifactStagingDirectory)/backend.zip'
-            replaceExistingArchive: true
-
-        - publish: $(Build.ArtifactStagingDirectory)/backend.zip
-          artifact: drop_back
-          displayName: "Publish Backend Artifact"
+  # ---------- BACKEND (TU VERSIÓN QUE FUNCIONA) ----------
+  - job: BuildAndTestBack
+    displayName: "Build & Test Backend (Go)"
+    steps:
+    - task: GoTool@0
+      inputs:
+        version: '1.22.1'
+      displayName: "Use Go version"
+    - task: CmdLine@2
+      displayName: "Tidy, Test & Build Backend"
+      inputs:
+        script: |
+          cd Golang
+          echo "📦 Tidying Go modules..."
+          go mod tidy 
+          echo "🧪 Running Go tests..."
+          go test ./... -v 
+          echo "🔨 Building Go binary for Linux..."
+          GOOS=linux GOARCH=amd64 go build -o ../app
+        failOnStderr: true
+    - task: ArchiveFiles@2
+      displayName: "Zip backend binary"
+      inputs:
+        rootFolderOrFile: 'app'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/backend.zip'
+        replaceExistingArchive: true
+    - task: ecdc45f6-832d-4ad9-b52b-ee49e94659be@1
+      displayName: "Publish Backend Artifact"
+      inputs:
+        path: $(Build.ArtifactStagingDirectory)/backend.zip
+        artifactName: drop_back
 
 # ===========================
 # STAGE 2: DEPLOY QA
 # ===========================
 - stage: DeployQA
-  displayName: "🚀 Deploy to QA"
-  dependsOn: BuildAndTest
+  displayName: "🚀 Deploy to QA Environment"
+  dependsOn:
+  - BuildAndTest
   condition: succeeded()
   jobs:
-    - deployment: DeployFrontendQA
-      displayName: "Deploy Frontend QA"
-      environment: 'QA'
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              - download: current
-                artifact: drop_front_qa
-              - task: AzureWebApp@1
-                displayName: "Deploy Frontend to QA Web App"
-                inputs:
-                  azureSubscription: '$(azureSubscription)'
-                  appType: 'webApp'
-                  appName: '$(webAppFrontendQA)'
-                  package: '$(Pipeline.Workspace)/drop_front_qa/frontend-qa.zip'
+  - deployment: DeployFrontendQA
+    displayName: "Deploy Frontend QA"
+    environment:
+      name: 'QA'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: 30f35852-3f7e-4c0c-9a88-e127b4f97211@1
+            inputs:
+              alias: current
+              artifact: drop_front_qa
+          - task: AzureWebApp@1
+            displayName: "Deploy Frontend to QA Web App"
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              appType: 'webApp'
+              appName: '$(webAppFrontendQA)'
+              package: '$(Pipeline.Workspace)/drop_front_qa/frontend-qa.zip'
 
-    - deployment: DeployBackendQA
-      displayName: "Deploy Backend QA"
-      environment: 'QA'
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              - download: current
-                artifact: drop_back
-              - task: AzureWebApp@1
-                displayName: "Deploy Backend to QA Web App"
-                inputs:
-                  azureSubscription: '$(azureSubscription)'
-                  appType: 'webApp'
-                  appName: '$(webAppBackendQA)'
-                  package: '$(Pipeline.Workspace)/drop_back/backend.zip'
-                  appSettings: |
-                    -name WEBSITE_STARTUP_FILE -value ./app
+  - deployment: DeployBackendQA
+    displayName: "Deploy Backend QA"
+    environment:
+      name: 'QA'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: 30f35852-3f7e-4c0c-9a88-e127b4f97211@1
+            inputs:
+              alias: current
+              artifact: drop_back
+          - task: AzureWebApp@1
+            displayName: "Deploy Backend to QA Web App"
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              appType: 'webApp'
+              appName: '$(webAppBackendQA)'
+              package: '$(Pipeline.Workspace)/drop_back/backend.zip'
+              appSettings: |
+                -name WEBSITE_STARTUP_FILE -value ./app
 
 # ===========================
 # STAGE 3: DEPLOY PROD
 # ===========================
 - stage: DeployPROD
   displayName: "🚀 Deploy to Production (Manual Approval)"
-  dependsOn: DeployQA
+  dependsOn:
+  - DeployQA
   condition: succeeded()
   jobs:
-    - deployment: DeployFrontendPROD
-      displayName: "Deploy Frontend PROD"
-      environment: 'PRODU'
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              - download: current
-                artifact: drop_front_prod
-              - task: AzureWebApp@1
-                displayName: "Deploy Frontend to PROD Web App"
-                inputs:
-                  azureSubscription: '$(azureSubscription)'
-                  appType: 'webApp'
-                  appName: '$(webAppFrontendPROD)'
-                  package: '$(Pipeline.Workspace)/drop_front_prod/frontend-prod.zip'
+  - deployment: DeployFrontendPROD
+    displayName: "Deploy Frontend PROD"
+    environment:
+      name: 'PRODU'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: 30f35852-3f7e-4c0c-9a88-e127b4f97211@1
+            inputs:
+              alias: current
+              artifact: drop_front_prod
+          - task: AzureWebApp@1
+            displayName: "Deploy Frontend to PROD Web App"
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              appType: 'webApp'
+              appName: '$(webAppFrontendPROD)'
+              package: '$(Pipeline.Workspace)/drop_front_prod/frontend-prod.zip'
 
-    - deployment: DeployBackendPROD
-      displayName: "Deploy Backend PROD"
-      environment: 'PRODU'
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              - download: current
-                artifact: drop_back
-              - task: AzureWebApp@1
-                displayName: "Deploy Backend to PROD Web App"
-                inputs:
-                  azureSubscription: '$(azureSubscription)'
-                  appType: 'webApp'
-                  appName: '$(webAppBackendPROD)'
-                  package: '$(Pipeline.Workspace)/drop_back/backend.zip'
-                  appSettings: |
-                    -name WEBSITE_STARTUP_FILE -value ./app
+  - deployment: DeployBackendPROD
+    displayName: "Deploy Backend PROD"
+    environment:
+      name: 'PRODU'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: 30f35852-3f7e-4c0c-9a88-e127b4f97211@1
+            inputs:
+              alias: current
+              artifact: drop_back
+          - task: AzureWebApp@1
+            displayName: "Deploy Backend to PROD Web App"
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              appType: 'webApp'
+              appName: '$(webAppBackendPROD)'
+              package: '$(Pipeline.Workspace)/drop_back/backend.zip'
+              appSettings: |-
+                -name WEBSITE_STARTUP_FILE -value ./app

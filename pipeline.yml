@@ -30,27 +30,27 @@ stages:
   displayName: "Build, Test Frontend & Backend"
   jobs:
 
-  # ---------- FRONTEND QA (FIXED) ----------
-    # ---------- FRONTEND QA (ARREGLADO) ----------
+  # ---------- FRONTEND QA (usar misma versión que PROD: Node 16.x) ----------
   - job: BuildAndTestFrontQA
     displayName: "Build & Test Frontend (QA)"
     steps:
     - task: NodeTool@0
       inputs:
-        versionSpec: '18.x'
-      displayName: "Set Node.js version (18.x)"
+        versionSpec: '16.x'
+      displayName: "Set Node.js version (16.x)"
 
     - task: CmdLine@2
       displayName: "Install, Test & Build Frontend for QA"
       inputs:
         script: |
-          # No usamos 'set -e' para que no aborte por warnings de npm
+          # No 'set -e' para manejar errores a mano y dar mejor diagnóstico
           cd frontend
 
           echo "Node/npm:"
           node -v
           npm -v
 
+          # Variables de entorno para el build QA
           echo "CI=true" > .env
           echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_QA)" >> .env
           echo "Usando .env:" && cat .env
@@ -61,7 +61,7 @@ stages:
           npm config set audit false
           npm config set fund false
 
-          echo "📦 Intento 1: npm ci (tolerante)"
+          echo "📦 Intento 1: npm ci"
           npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm
           INSTALL_EXIT=$?
 
@@ -78,6 +78,7 @@ stages:
           fi
 
           echo "🧪 Running frontend tests..."
+          # Si no tenés script 'test', esto devuelve 0 igual en muchos setups
           npm test -- --watchAll=false
           TEST_EXIT=$?
           if [ $TEST_EXIT -ne 0 ]; then
@@ -85,11 +86,14 @@ stages:
             exit $TEST_EXIT
           fi
 
-          echo "🌍 Building React app for QA..."
-          npm run build
+          echo "🌍 Building React app for QA (verbose)…"
+          # Agrego verbose para ver dónde truena si algo falla
+          npm run build --verbose
           BUILD_EXIT=$?
           if [ $BUILD_EXIT -ne 0 ]; then
             echo "❌ Build fallido (exit=$BUILD_EXIT)"
+            # Muestra las últimas líneas del log de npm si existen
+            if [ -f npm-debug.log ]; then tail -n 200 npm-debug.log; fi
             exit $BUILD_EXIT
           fi
 
@@ -120,9 +124,8 @@ stages:
 
           cd build
           npm install --production --no-audit --no-fund
-      env:
-        # Necesario si tu build usa Webpack <5 / react-scripts antiguos en Node 18
-        NODE_OPTIONS: --openssl-legacy-provider
+    # No forces el failOnStderr aquí; los warnings deprecados usan stderr
+    # y no queremos que tiren el job.
 
     - task: ArchiveFiles@2
       displayName: "Zip Frontend QA build"
@@ -138,7 +141,6 @@ stages:
       inputs:
         path: $(Build.ArtifactStagingDirectory)/frontend-qa.zip
         artifactName: drop_front_qa
-
 
   # ---------- FRONTEND PROD (TU VERSIÓN QUE FUNCIONA) ----------
   - job: BuildFrontPROD

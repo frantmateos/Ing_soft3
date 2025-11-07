@@ -220,7 +220,7 @@ stages:
       inputs:
         versionSpec: '17'
         jdkArchitectureOption: 'x64'
-        jdkSourceOption: 'AzureStorage'
+        jdkSourceOption: 'PreInstalled'
 
     - task: SonarCloudAnalyze@3
       displayName: "Run SonarCloud Analysis"

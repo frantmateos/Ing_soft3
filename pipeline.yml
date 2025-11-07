@@ -47,7 +47,7 @@ stages:
           cd frontend
 
           echo "CI=true" > .env
-          echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_QA)" >> .env
+          echo "REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL_QA}" >> .env
           echo "Usando .env:" && cat .env
 
           echo "Config npm para CI robusto"
@@ -130,7 +130,7 @@ stages:
           set -e
           cd frontend
           echo "🌍 Building React app for Production..."
-          echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_PROD)" > .env
+          echo "REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL_PROD}" > .env
           cat .env
           npm install
           npm run build

@@ -193,12 +193,14 @@ stages:
 
     - task: SonarCloudPrepare@3
       inputs:
-        SonarQube: 'SonarCloud'
-        organization: 'frantmateos'
-        scannerMode: 'dotnet'
-        projectKey: 'frantmateos_Ing_soft3'
-        projectName: 'Ing_soft3'
-
+      SonarQube: 'SonarCloud'
+      organization: 'frantmateos'
+      scannerMode: 'CLI'                     # ✅ modo CLI (no usa dotnet)
+      configMode: 'manual'
+      cliProjectKey: 'frantmateos_Ing_soft3'
+      cliProjectName: 'Ing_soft3'
+      cliSources: 'Golang'                   # ✅ carpeta donde está tu código Go
+      cliOptions: '-Dsonar.exclusions=**/vendor/**,**/tests/**'
 
     - task: CmdLine@2
       displayName: "Tidy, Test & Build Backend"

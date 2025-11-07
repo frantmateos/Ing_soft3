@@ -4,7 +4,7 @@ trigger:
       - main
 
 pool:
-  name: MiPool  # o vmImage: 'ubuntu-latest' si usas hosted
+  name: MiPool  # o vmImage: 'ubuntu-latest'
 
 variables:
   azureSubscription: 'tp05-connection'
@@ -28,12 +28,17 @@ stages:
 
     # ---------- FRONTEND QA ----------
     - job: FrontendQA
-      displayName: "Build & Test Frontend (QA)"
+      displayName: "Install, Test & Build Frontend (QA)"
       steps:
         - task: NodeTool@0
           displayName: "Use Node $(NODE_VERSION)"
           inputs:
             versionSpec: '$(NODE_VERSION)'
+
+        - script: |
+            node -v
+            npm -v
+          displayName: "Node/npm versions"
 
         - task: Cache@2
           displayName: "Cache npm (frontend)"
@@ -50,16 +55,22 @@ stages:
 
             echo "CI=true" > .env
             echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_QA)" >> .env
-            echo "Usando .env:"
-            cat .env
+            echo "Usando .env:" && cat .env
 
-            # Evitar que alguna lib con engines estrictos corte la instalación
+            echo "Config npm para CI robusto"
             npm config set engine-strict false
+            npm config set legacy-peer-deps true
+            npm config set audit false
+            npm config set fund false
 
-            echo "📦 npm ci"
-            npm ci
+            echo "📦 npm ci (con flags duros)"
+            if ! npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm; then
+              echo "npm ci falló. Reintentando con npm install limpio…"
+              rm -rf node_modules package-lock.json
+              npm install --no-audit --no-fund --legacy-peer-deps --unsafe-perm
+            fi
 
-            echo "🧪 npm test (sin watch)"
+            echo "🧪 npm test"
             npm test -- --watchAll=false
 
             echo "🌍 npm run build (QA)"
@@ -91,7 +102,7 @@ stages:
             EOF
 
             cd build
-            npm install --production
+            npm install --production --no-audit --no-fund
           displayName: "Install, Test & Build Frontend (QA)"
           env:
             NODE_OPTIONS: --openssl-legacy-provider
@@ -118,6 +129,11 @@ stages:
           inputs:
             versionSpec: '$(NODE_VERSION)'
 
+        - script: |
+            node -v
+            npm -v
+          displayName: "Node/npm versions"
+
         - task: Cache@2
           displayName: "Cache npm (frontend)"
           inputs:
@@ -133,13 +149,20 @@ stages:
 
             echo "CI=true" > .env
             echo "REACT_APP_BACKEND_URL=$(REACT_APP_BACKEND_URL_PROD)" >> .env
-            echo "Usando .env:"
-            cat .env
+            echo "Usando .env:" && cat .env
 
+            echo "Config npm para CI robusto"
             npm config set engine-strict false
+            npm config set legacy-peer-deps true
+            npm config set audit false
+            npm config set fund false
 
-            echo "📦 npm ci"
-            npm ci
+            echo "📦 npm ci (con flags duros)"
+            if ! npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm; then
+              echo "npm ci falló. Reintentando con npm install limpio…"
+              rm -rf node_modules package-lock.json
+              npm install --no-audit --no-fund --legacy-peer-deps --unsafe-perm
+            fi
 
             echo "🌍 npm run build (PROD)"
             npm run build
@@ -170,7 +193,7 @@ stages:
             EOF
 
             cd build
-            npm install --production
+            npm install --production --no-audit --no-fund
           displayName: "Build Frontend (PROD)"
           env:
             NODE_OPTIONS: --openssl-legacy-provider

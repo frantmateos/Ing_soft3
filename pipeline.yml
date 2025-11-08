@@ -200,7 +200,9 @@ stages:
         cliProjectKey: 'frantmateos_Ing_soft3'
         cliProjectName: 'Ing_soft3'
         cliSources: 'Golang'                   # ✅ carpeta donde está tu código Go
-        cliOptions: '-Dsonar.exclusions=**/vendor/**,**/tests/**'
+        cliOptions: >
+          -Dsonar.exclusions=**/vendor/**,**/tests/**
+          -Dsonar.go.coverage.reportPaths=Golang/coverage.out 
 
     - task: CmdLine@2
       displayName: "Tidy, Test & Build Backend"
@@ -210,7 +212,7 @@ stages:
           echo "📦 Tidying Go modules..."
           go mod tidy
           echo "🧪 Running Go tests..."
-          go test ./... -v
+          go test ./... -coverprofile=coverage.out -covermode=atomic
           echo "🔨 Building Go binary for Linux..."
           GOOS=linux GOARCH=amd64 go build -o ../app
         failOnStderr: true

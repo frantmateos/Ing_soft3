@@ -216,11 +216,11 @@ stages:
         failOnStderr: true
     
     - task: JavaToolInstaller@0
-      displayName: "Install Java 17 for SonarCloud"
+      displayName: "Install Java 17 (for SonarCloud)"
       inputs:
         versionSpec: '17'
         jdkArchitectureOption: 'x64'
-        jdkSourceOption: 'PreInstalled'
+        jdkSourceOption: 'AzureStorage'
 
     - task: SonarCloudAnalyze@3
       displayName: "Run SonarCloud Analysis"

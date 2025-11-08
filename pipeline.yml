@@ -216,22 +216,12 @@ stages:
         failOnStderr: true
     
     - script: |
-        echo "☕ Installing OpenJDK 17 for SonarCloud..."
-        brew install openjdk@17 || echo "Java 17 already installed."
-
-        echo "🔧 Linking Java so macOS can find it..."
-        sudo ln -sfn $(brew --prefix openjdk@17)/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-17.jdk
-
-        echo "✅ Setting JAVA_HOME and PATH for SonarCloud..."
-        JAVA_PATH=$(brew --prefix openjdk@17)
+        echo "☕ Setting Java 17 environment variables..."
+        JAVA_PATH=$(/usr/libexec/java_home -v 17)
         echo "##vso[task.setvariable variable=JAVA_HOME]$JAVA_PATH"
         echo "##vso[task.setvariable variable=PATH]$JAVA_PATH/bin:$PATH"
-
-        echo "🔍 Checking Java installation..."
-        export JAVA_HOME=$JAVA_PATH
-        export PATH="$JAVA_HOME/bin:$PATH"
         java -version
-      displayName: "Install & Configure Java 17 locally for SonarCloud"
+      displayName: "Configure Java 17 for SonarCloud"
 
 
     - task: SonarCloudAnalyze@3

@@ -215,12 +215,14 @@ stages:
           GOOS=linux GOARCH=amd64 go build -o ../app
         failOnStderr: true
     
-    - task: JavaToolInstaller@0
-      displayName: "Install Java 17 (for SonarCloud)"
-      inputs:
-        versionSpec: '17'
-        jdkArchitectureOption: 'x64'
-        jdkSourceOption: 'AzureStorage'
+    - script: |
+        echo "☕ Installing OpenJDK 17 for SonarCloud..."
+        brew install openjdk@17 || echo "Java 17 already installed."
+        echo "✅ Setting JAVA_HOME and PATH..."
+        echo "##vso[task.setvariable variable=JAVA_HOME]$(/usr/libexec/java_home -v 17)"
+        echo "##vso[task.setvariable variable=PATH]$(/usr/libexec/java_home -v 17)/bin:$PATH"
+        java -version
+      displayName: "Install Java 17 locally for SonarCloud"
 
     - task: SonarCloudAnalyze@3
       displayName: "Run SonarCloud Analysis"

@@ -128,6 +128,14 @@ stages:
       displayName: "DEBUG Coverage Frontend antes de Sonar"
 
     # --- 🧭 SonarCloud del FRONTEND ---
+
+    - script: |
+        cd frontend/coverage
+        echo "🧩 Normalizando rutas absolutas -> relativas en lcov.info"
+        sed -i '' "s|/Users/franciscomateos/myagent/_work/1/s/frontend/src|frontend/src|g" lcov.info
+        head -n 10 lcov.info
+      displayName: "Fix lcov.info paths for SonarCloud"
+      
     - task: SonarCloudPrepare@3
       displayName: "SonarCloud Prepare (Frontend)"
       inputs:
@@ -141,6 +149,7 @@ stages:
         cliOptions: >
           -Dsonar.javascript.lcov.reportPaths=$(Build.SourcesDirectory)/frontend/coverage/lcov.info
           -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
+    
 
     - task: SonarCloudAnalyze@3
       displayName: "SonarCloud Analyze (Frontend)"
@@ -253,8 +262,8 @@ stages:
         cliSources: 'Golang'
         cliOptions: >
           -Dsonar.exclusions=**/vendor/**,**/tests/**
+          -Dsonar.language=go
           -Dsonar.go.coverage.reportPaths=$(Build.SourcesDirectory)/Golang/coverage.out
-
 
     - task: CmdLine@2
       displayName: "Tidy, Test & Build Backend"

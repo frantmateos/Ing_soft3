@@ -70,11 +70,8 @@ describe('Login como Administrador y creación de nuevo cliente (robusto)', () =
     cy.get('.modal-content', { timeout: 10000 }).should('be.visible');
 
     // 🔹 Completar formulario
-<<<<<<< HEAD
     cy.get('input[placeholder="Nombre del Usuario"]').should('be.enabled').clear().type(nuevoUsuario.nombre);
-=======
     cy.get('input[placeholder="Nombre del Usuario"]').clear().type(nuevoUsuario.nombre);
->>>>>>> 8c817aac3aa984114c15a9c6d301b472a0a9f1f5
     cy.get('input[placeholder="Género"]').should('be.enabled').clear().type(nuevoUsuario.genero);
     cy.get('textarea[placeholder="Atributos"]').type(nuevoUsuario.atributos);
 

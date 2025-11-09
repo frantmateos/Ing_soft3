@@ -71,7 +71,7 @@ describe('Login como Administrador y creación de nuevo cliente (robusto)', () =
 
     // 🔹 Completar formulario
     cy.get('input[placeholder="Nombre del Usuario"]').clear().type(nuevoUsuario.nombre);
-    cy.get('input[placeholder="Género"]').clear().type(nuevoUsuario.genero);
+    cy.get('input[placeholder="Género"]').should('be.enabled').clear().type(nuevoUsuario.genero);
     cy.get('textarea[placeholder="Atributos"]').type(nuevoUsuario.atributos);
 
     // Checkboxes: maneja es el primero (index 0)

@@ -105,6 +105,9 @@ stages:
         cd frontend
         echo "🧪 Ejecutando Jest con coverage (lcov + cobertura)..."
         npm test -- --coverage --watchAll=false --coverageReporters=lcov --coverageReporters=cobertura
+        echo "Contenido de coverage/lcov.info:"
+        ls -lah coverage
+        head -n 10 coverage/lcov.info
       displayName: "Run Jest with Coverage"
 
     - task: PublishCodeCoverageResults@2
@@ -252,6 +255,9 @@ stages:
           go mod tidy
           echo "🧪 Running Go tests..."
           go test ./... -coverprofile=coverage.out -covermode=atomic
+          echo "Verificando cobertura Go..."
+          ls -lah
+          cat coverage.out | head -n 10
           echo "🔨 Building Go binary for Linux..."
           GOOS=linux GOARCH=amd64 go build -o ../app
         failOnStderr: true

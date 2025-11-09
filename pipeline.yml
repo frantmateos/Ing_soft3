@@ -100,6 +100,44 @@ stages:
           cd build
           npm install --production --no-audit --no-fund
 
+    # --- 🔎 Coverage de Jest + publicar en Azure DevOps ---
+    - script: |
+        cd frontend
+        echo "🧪 Ejecutando Jest con coverage (lcov + cobertura)..."
+        npm test -- --coverage --watchAll=false --coverageReporters=lcov --coverageReporters=cobertura
+      displayName: "Run Jest with Coverage"
+
+    - task: PublishCodeCoverageResults@2
+      displayName: "Publish Frontend Coverage (Cobertura)"
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: 'frontend/coverage/cobertura-coverage.xml'
+        reportDirectory: 'frontend/coverage'
+        failIfCoverageEmpty: false
+
+    # --- 🧭 SonarCloud del FRONTEND ---
+    - task: SonarCloudPrepare@3
+      displayName: "SonarCloud Prepare (Frontend)"
+      inputs:
+        SonarQube: 'SonarCloud'
+        organization: 'frantmateos'              # <--- TU ORG
+        scannerMode: 'CLI'
+        configMode: 'manual'
+        cliProjectKey: 'frantmateos_frontend_qa' # <--- PROJECT KEY FRONTEND
+        cliProjectName: 'frontend-qa'
+        cliSources: 'frontend/src'
+        cliOptions: >
+          -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
+          -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
+
+    - task: SonarCloudAnalyze@3
+      displayName: "SonarCloud Analyze (Frontend)"
+
+    - task: SonarCloudPublish@3
+      displayName: "SonarCloud Publish (Frontend, Quality Gate)"
+      inputs:
+        pollingTimeoutSec: '300'
+
     - task: ArchiveFiles@2
       displayName: "Zip Frontend QA build"
       inputs:
@@ -115,7 +153,7 @@ stages:
         path: $(Build.ArtifactStagingDirectory)/frontend-qa.zip
         artifactName: drop_front_qa
 
-  # ---------- FRONTEND PROD (tu versión que funciona) ----------
+  # ---------- FRONTEND PROD (sin cambios extra) ----------
   - job: BuildFrontPROD
     displayName: "Build Frontend (Production)"
     steps:
@@ -179,13 +217,14 @@ stages:
         path: $(Build.ArtifactStagingDirectory)/frontend-prod.zip
         artifactName: drop_front_prod
 
-  # ---------- BACKEND (sin cambios) ----------
+  # ---------- BACKEND (Go) ----------
   - job: BuildAndTestBack
     displayName: "Build & Test Backend (Go)"
     steps:
 
     - checkout: self
       fetchDepth: 0
+
     - task: GoTool@0
       inputs:
         version: '1.22.1'
@@ -195,14 +234,14 @@ stages:
       inputs:
         SonarQube: 'SonarCloud'
         organization: 'frantmateos'
-        scannerMode: 'CLI'                     # ✅ modo CLI (no usa dotnet)
+        scannerMode: 'CLI'
         configMode: 'manual'
         cliProjectKey: 'frantmateos_Ing_soft3'
         cliProjectName: 'Ing_soft3'
-        cliSources: 'Golang'                   # ✅ carpeta donde está tu código Go
+        cliSources: 'Golang'
         cliOptions: >
           -Dsonar.exclusions=**/vendor/**,**/tests/**
-          -Dsonar.go.coverage.reportPaths=Golang/coverage.out 
+          -Dsonar.go.coverage.reportPaths=Golang/coverage.out
 
     - task: CmdLine@2
       displayName: "Tidy, Test & Build Backend"
@@ -216,7 +255,7 @@ stages:
           echo "🔨 Building Go binary for Linux..."
           GOOS=linux GOARCH=amd64 go build -o ../app
         failOnStderr: true
-    
+
     - script: |
         echo "☕ Setting Java 17 environment variables..."
         JAVA_PATH=$(/usr/libexec/java_home -v 17)
@@ -225,16 +264,16 @@ stages:
         java -version
       displayName: "Configure Java 17 for SonarCloud"
 
-
     - task: SonarCloudAnalyze@3
       displayName: "Run SonarCloud Analysis"
       inputs:
-        jdkversion: 'JAVA_HOME_17_X64'    
+        jdkversion: 'JAVA_HOME_17_X64'
 
     - task: SonarCloudPublish@3
       displayName: "Publish SonarCloud Results"
       inputs:
-          pollingTimeoutSec: '300'
+        pollingTimeoutSec: '300'
+
     - task: ArchiveFiles@2
       displayName: "Zip backend binary"
       inputs:
@@ -243,6 +282,7 @@ stages:
         archiveType: 'zip'
         archiveFile: '$(Build.ArtifactStagingDirectory)/backend.zip'
         replaceExistingArchive: true
+
     - task: ecdc45f6-832d-4ad9-b52b-ee49e94659be@1
       displayName: "Publish Backend Artifact"
       inputs:
@@ -301,12 +341,63 @@ stages:
                 -name WEBSITE_STARTUP_FILE -value ./app
 
 # ===========================
+# STAGE 2.5: E2E QA (Cypress)
+# ===========================
+- stage: E2E_QA
+  displayName: "🧪 E2E Cypress contra QA"
+  dependsOn:
+    - DeployQA
+  condition: succeeded()
+  jobs:
+  - job: CypressRunQA
+    displayName: "Run Cypress E2E (QA)"
+    pool:
+      name: MiPool
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '16.x'
+      displayName: "Set Node.js 16.x"
+
+    - script: |
+        cd frontend
+        echo "📦 Instalando deps para Cypress..."
+        npm ci --no-audit --no-fund --legacy-peer-deps || npm install --no-audit --no-fund --legacy-peer-deps
+        npx cypress verify
+      displayName: "Install Cypress"
+
+    - script: |
+        cd frontend
+        echo "🚀 Ejecutando Cypress headless contra QA..."
+        npx cypress run \
+          --reporter junit \
+          --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true" \
+          --config baseUrl=https://$(webAppFrontendQA).azurewebsites.net,video=true,videoCompression=32
+      displayName: "Run Cypress (headless, JUnit)"
+
+    - task: PublishTestResults@2
+      displayName: "Publicar resultados Cypress (JUnit)"
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: 'frontend/cypress/results/*.xml'
+        mergeTestResults: true
+        failTaskOnFailedTests: true
+
+    - task: PublishBuildArtifacts@1
+      displayName: "Adjuntar videos/screenshots Cypress"
+      inputs:
+        pathToPublish: 'frontend/cypress'
+        artifactName: 'cypress_e2e_artifacts'
+        publishLocation: 'Container'
+
+# ===========================
 # STAGE 3: DEPLOY PROD
 # ===========================
 - stage: DeployPROD
   displayName: "🚀 Deploy to Production (Manual Approval)"
   dependsOn:
     - DeployQA
+    - E2E_QA
   condition: succeeded()
   jobs:
   - deployment: DeployFrontendPROD

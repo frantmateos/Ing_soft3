@@ -139,7 +139,7 @@ stages:
         cliProjectName: 'frontend-qa'
         cliSources: 'frontend/src'
         cliOptions: >
-          -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
+          -Dsonar.javascript.lcov.reportPaths=$(Build.SourcesDirectory)/frontend/coverage/lcov.info
           -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
 
     - task: SonarCloudAnalyze@3
@@ -253,7 +253,8 @@ stages:
         cliSources: 'Golang'
         cliOptions: >
           -Dsonar.exclusions=**/vendor/**,**/tests/**
-          -Dsonar.go.coverage.reportPaths=Golang/coverage.out
+          -Dsonar.go.coverage.reportPaths=$(Build.SourcesDirectory)/Golang/coverage.out
+
 
     - task: CmdLine@2
       displayName: "Tidy, Test & Build Backend"

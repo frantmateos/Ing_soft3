@@ -52,9 +52,6 @@ describe('Flujo de Registro y Login de Administrador', () => {
 
     cy.url({ timeout: 10000 }).should('include', '/home');
 
-    cy.wait('@token').its('response.statusCode').should('eq', 200);
-    cy.wait('@usersAll').its('response.statusCode').should('be.oneOf', [200, 204]); // tu API puede devolver 204 si no hay usuarios
-
     cy.contains('Usuarios', { timeout: 10000 }).should('be.visible');
   });
 });

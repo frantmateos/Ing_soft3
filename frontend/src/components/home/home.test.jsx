@@ -10,20 +10,16 @@ jest.mock('../../utils/Acciones');
 beforeEach(() => {
   jest.clearAllMocks();
   localStorage.clear();
-  // prevent real reloads
   delete window.location;
   window.location = { reload: jest.fn() };
 });
 
-// jsdom in this environment may lack MutationObserver used by some components — polyfill it.
-/* eslint-disable no-unused-vars */
 global.MutationObserver = global.MutationObserver || class {
   constructor(callback) { this.callback = callback; }
   disconnect() {}
   observe() {}
   takeRecords() { return []; }
 };
-/* eslint-enable no-unused-vars */
 
 test('open and close add dialog resets body overflow', async () => {
   tokenRole.mockResolvedValue(true);
@@ -58,9 +54,9 @@ test('insert user success calls insertUser and reload', async () => {
   const textarea = within(modal).getByPlaceholderText(/Atributos/i);
   const addBtn = within(modal).getByRole('button', { name: /Agregar/i });
 
-  userEvent.type(inputNombre, 'nuevo nombre');
-  userEvent.type(inputGenero, 'M');
-  userEvent.type(textarea, 'atrib');
+  act(() => { userEvent.type(inputNombre, 'nuevo nombre'); });
+  act(() => { userEvent.type(inputGenero, 'M'); });
+  act(() => { userEvent.type(textarea, 'atrib'); });
 
   await act(async () => { userEvent.click(addBtn); });
 
@@ -75,8 +71,10 @@ test('edit user updates and reloads', async () => {
   updateUser.mockResolvedValue({ id: 1, nombre: 'u1-upd', atributos: 'a' });
 
   await act(async () => { render(<MemoryRouter><MisUsuarios /></MemoryRouter>); });
-  // click actualizar
-  const updateBtn = await screen.findByRole('button', { name: /Actualizar/i });
+
+  await screen.findByText('u1');
+
+  const updateBtn = screen.getByRole('button', { name: /Actualizar/i });
   act(() => { userEvent.click(updateBtn); });
 
   const modal = document.querySelector('.modal-content');
@@ -85,11 +83,10 @@ test('edit user updates and reloads', async () => {
   const textarea = within(modal).getByPlaceholderText(/Atributos/i);
   const updateSubmit = within(modal).getByRole('button', { name: /Actualizar/i });
 
-  // change values
-  userEvent.clear(inputNombre);
-  userEvent.type(inputNombre, 'u1-upd');
-  userEvent.type(inputGenero, 'F');
-  userEvent.type(textarea, 'attr');
+  act(() => { userEvent.clear(inputNombre); });
+  act(() => { userEvent.type(inputNombre, 'u1-upd'); });
+  act(() => { userEvent.type(inputGenero, 'F'); });
+  act(() => { userEvent.type(textarea, 'attr'); });
 
   await act(async () => { userEvent.click(updateSubmit); });
 

@@ -105,9 +105,10 @@ stages:
         cd frontend
         echo "🧪 Ejecutando Jest con coverage (lcov + cobertura)..."
         npm test -- --coverage --watchAll=false --coverageReporters=lcov --coverageReporters=cobertura
-        echo "Contenido de coverage/lcov.info:"
+        echo "📂 Archivos generados en coverage:"
         ls -lah coverage
-        head -n 10 coverage/lcov.info
+        echo "Primeras líneas del lcov.info:"
+        head -n 10 coverage/lcov.info || echo "lcov.info no encontrado"
       displayName: "Run Jest with Coverage"
 
     - task: PublishCodeCoverageResults@2
@@ -117,6 +118,14 @@ stages:
         summaryFileLocation: 'frontend/coverage/cobertura-coverage.xml'
         reportDirectory: 'frontend/coverage'
         failIfCoverageEmpty: false
+
+    - script: |
+        echo "🔍 DEBUG: verificando cobertura FRONTEND"
+        echo "Directorio actual: $(pwd)"
+        ls -R frontend/coverage || echo "No existe carpeta coverage"
+        echo "Primeras líneas del lcov.info:"
+        head -n 20 frontend/coverage/lcov.info || echo "No existe lcov.info"
+      displayName: "DEBUG Coverage Frontend antes de Sonar"
 
     # --- 🧭 SonarCloud del FRONTEND ---
     - task: SonarCloudPrepare@3
@@ -257,7 +266,8 @@ stages:
           go test ./... -coverprofile=coverage.out -covermode=atomic
           echo "Verificando cobertura Go..."
           ls -lah
-          cat coverage.out | head -n 10
+          head -n 10 coverage.out || echo "No existe coverage.out"
+          mv coverage.out ../Golang/coverage.out
           echo "🔨 Building Go binary for Linux..."
           GOOS=linux GOARCH=amd64 go build -o ../app
         failOnStderr: true
@@ -269,6 +279,22 @@ stages:
         echo "##vso[task.setvariable variable=PATH]$JAVA_PATH/bin:$PATH"
         java -version
       displayName: "Configure Java 17 for SonarCloud"
+
+    - task: PublishCodeCoverageResults@2
+      displayName: "📊 Publish Backend Coverage (Go)"
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: 'Golang/coverage.out'
+        reportDirectory: 'Golang'
+        failIfCoverageEmpty: false
+
+    - script: |
+        echo "🔍 DEBUG: verificando cobertura BACKEND"
+        echo "Directorio actual: $(pwd)"
+        ls -lah Golang || echo "No existe carpeta Golang"
+        echo "Primeras líneas del coverage.out:"
+        head -n 20 Golang/coverage.out || echo "No existe coverage.out"
+      displayName: "DEBUG Coverage Backend antes de Sonar"
 
     - task: SonarCloudAnalyze@3
       displayName: "Run SonarCloud Analysis"

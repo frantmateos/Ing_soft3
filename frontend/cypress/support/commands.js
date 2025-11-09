@@ -23,3 +23,31 @@
 //
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
+// Helper para loguear por API y guardar el token en localStorage
+Cypress.Commands.add('apiLogin', (nombre, password, admin = true) => {
+  const api = Cypress.env('backendApiUrl');
+  return cy.request('POST', `${api}/users/login`, { nombre, password, admin })
+    .then((resp) => {
+      expect(resp.status).to.be.oneOf([200, 201]);
+      const token = resp.body.Token || resp.body.token;
+      expect(token, 'token recibido').to.be.a('string');
+
+      // Guardamos el token para la app
+      window.localStorage.setItem('token', token);
+      window.localStorage.setItem('nombre', nombre);
+      return token;
+    });
+});
+
+// (Opcional) Helper para crear usuario por API (útil para preparar datos)
+Cypress.Commands.add('apiCreateUser', (user) => {
+  const api = Cypress.env('backendApiUrl');
+  const token = window.localStorage.getItem('token');
+  return cy.request({
+    method: 'POST',
+    url: `${api}/users`,
+    body: user,
+    headers: { Authorization: `Bearer ${token}` },
+    failOnStatusCode: false,
+  }).then((resp) => resp);
+});

@@ -46,6 +46,8 @@ func main() {
 
 		allowedOrigins := []string{
 			"https://localhost:3000",
+			"http://localhost:3000",
+			"http://127.0.0.1:3000",
 			"https://webapp-qa-2025.azurewebsites.net",
 			"https://webapp-produ-2025.azurewebsites.net",
 		}

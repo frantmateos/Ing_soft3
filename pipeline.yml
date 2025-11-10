@@ -1,7 +1,7 @@
 trigger:
   branches:
     include:
-      - Task-1
+      - tomi
 
 pool:
   name: MiPool
@@ -30,7 +30,6 @@ variables:
 - name: frontendImage
   value: 'frontend'
 
-
 stages:
 # ===========================
 # STAGE 1: BUILD & TEST
@@ -39,7 +38,7 @@ stages:
   displayName: "Build, Test Frontend & Backend"
   jobs:
 
-  # ---------- FRONTEND QA (simple y robusto) ----------
+  # ---------- FRONTEND QA ----------
   - job: BuildAndTestFrontQA
     displayName: "Build & Test Frontend (QA)"
     steps:
@@ -109,15 +108,13 @@ stages:
           cd build
           npm install --production --no-audit --no-fund
 
-    # --- 🔎 Coverage de Jest + publicar en Azure DevOps ---
+    # --- 🧪 Coverage de Jest + publicar en Azure DevOps ---
     - script: |
         cd frontend
         echo "🧪 Ejecutando Jest con coverage (lcov + cobertura)..."
         npm test -- --coverage --watchAll=false --coverageReporters=lcov --coverageReporters=cobertura
         echo "📂 Archivos generados en coverage:"
-        ls -lah coverage
-        echo "Primeras líneas del lcov.info:"
-        head -n 10 coverage/lcov.info || echo "lcov.info no encontrado"
+        ls -lah coverage || dir coverage
       displayName: "Run Jest with Coverage"
 
     - task: PublishCodeCoverageResults@2
@@ -127,41 +124,27 @@ stages:
         summaryFileLocation: 'frontend/coverage/cobertura-coverage.xml'
         reportDirectory: 'frontend/coverage'
         failIfCoverageEmpty: false
+      condition: always()
 
-    - script: |
-        echo "🔍 DEBUG: verificando cobertura FRONTEND"
-        echo "Directorio actual: $(pwd)"
-        ls -R frontend/coverage || echo "No existe carpeta coverage"
-        echo "Primeras líneas del lcov.info:"
-        head -n 20 frontend/coverage/lcov.info || echo "No existe lcov.info"
-      displayName: "DEBUG Coverage Frontend antes de Sonar"
-
-    # --- 🧭 SonarCloud del FRONTEND ---
-
-    - script: |
-        cd frontend/coverage
-        echo "🧩 Normalizando rutas absolutas -> relativas en lcov.info"
-        sed -i '' "s|/Users/franciscomateos/myagent/_work/1/s/frontend/src|frontend/src|g" lcov.info
-        head -n 10 lcov.info
-      displayName: "Fix lcov.info paths for SonarCloud"
-
+    # --- 🧭 SonarCloud del FRONTEND (simple) ---
     - task: SonarCloudPrepare@3
       displayName: "SonarCloud Prepare (Frontend)"
       inputs:
         SonarQube: 'SonarCloud'
-        organization: 'frantmateos'              # <--- TU ORG
+        organization: 'frantmateos'
         scannerMode: 'CLI'
         configMode: 'manual'
-        cliProjectKey: 'frantmateos_frontend_qa' # <--- PROJECT KEY FRONTEND
+        cliProjectKey: 'frantmateos_frontend_qa'
         cliProjectName: 'frontend-qa'
         cliSources: 'frontend/src'
         cliOptions: >
-          -Dsonar.javascript.lcov.reportPaths=$(Build.SourcesDirectory)/frontend/coverage/lcov.info
           -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
-    
+          -Dsonar.javascript.lcov.reportPaths=$(Build.SourcesDirectory)/frontend/coverage/lcov.info
 
     - task: SonarCloudAnalyze@3
       displayName: "SonarCloud Analyze (Frontend)"
+      inputs:
+        jdkversion: 'JAVA_HOME_17_X64'
 
     - task: SonarCloudPublish@3
       displayName: "SonarCloud Publish (Frontend, Quality Gate)"
@@ -183,7 +166,7 @@ stages:
         path: $(Build.ArtifactStagingDirectory)/frontend-qa.zip
         artifactName: drop_front_qa
 
-  # ---------- FRONTEND PROD (sin cambios extra) ----------
+  # ---------- FRONTEND PROD ----------
   - job: BuildFrontPROD
     displayName: "Build Frontend (Production)"
     steps:
@@ -260,7 +243,51 @@ stages:
         version: '1.22.1'
       displayName: "Use Go version"
 
+    - task: CmdLine@2
+      displayName: "Tidy, Test & Build Backend (coverage)"
+      inputs:
+        script: |
+          cd Golang
+          echo "📦 Tidying Go modules..."
+          go mod tidy
+
+          echo "🧪 Running Go tests with coverage..."
+          go test ./... -coverprofile=coverage.out -covermode=atomic
+
+          echo "🔨 Building Go binary for Linux..."
+          GOOS=linux GOARCH=amd64 go build -o ../app
+
+          echo "✅ Coverage generado en: $(pwd)/coverage.out"
+        failOnStderr: true
+
+    # (Opcional) Publicar JUnit de Go — activar si querés ver tests como “Test Results”
+    # - script: |
+    #     cd Golang
+    #     go install gotest.tools/gotestsum@latest
+    #     gotestsum --format=standard-verbose --junitfile test-results-go.xml -- -covermode=atomic -coverprofile=coverage.out ./...
+    #   displayName: "Tests Go (JUnit + Coverage)"
+    #
+    # - task: PublishTestResults@2
+    #   displayName: "Publish backend test results (JUnit)"
+    #   inputs:
+    #     testResultsFormat: 'JUnit'
+    #     testResultsFiles: 'Golang/test-results-go.xml'
+    #     mergeTestResults: true
+    #     failTaskOnFailedTests: true
+    #   condition: always()
+
+    - task: PublishCodeCoverageResults@2
+      displayName: "📊 Publish Backend Coverage (Go)"
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: 'Golang/coverage.out'
+        reportDirectory: 'Golang'
+        failIfCoverageEmpty: false
+      condition: always()
+
+    # SonarCloud para BACKEND (Go)
     - task: SonarCloudPrepare@3
+      displayName: "SonarCloud Prepare (Backend)"
       inputs:
         SonarQube: 'SonarCloud'
         organization: 'frantmateos'
@@ -271,57 +298,16 @@ stages:
         cliSources: 'Golang'
         cliOptions: >
           -Dsonar.exclusions=**/vendor/**,**/tests/**
-          -Dsonar.language=go
+          -Dsonar.languages=go
           -Dsonar.go.coverage.reportPaths=$(Build.SourcesDirectory)/Golang/coverage.out
 
-    - task: CmdLine@2
-      displayName: "Tidy, Test & Build Backend"
-      inputs:
-        script: |
-          cd Golang
-          echo "📦 Tidying Go modules..."
-          go mod tidy
-          echo "🧪 Running Go tests..."
-          go test ./... -coverprofile=coverage.out -covermode=atomic
-          echo "Verificando cobertura Go..."
-          ls -lah
-          head -n 10 coverage.out || echo "No existe coverage.out"
-          mv coverage.out ../Golang/coverage.out
-          echo "🔨 Building Go binary for Linux..."
-          GOOS=linux GOARCH=amd64 go build -o ../app
-        failOnStderr: true
-
-    - script: |
-        echo "☕ Setting Java 17 environment variables..."
-        JAVA_PATH=$(/usr/libexec/java_home -v 17)
-        echo "##vso[task.setvariable variable=JAVA_HOME]$JAVA_PATH"
-        echo "##vso[task.setvariable variable=PATH]$JAVA_PATH/bin:$PATH"
-        java -version
-      displayName: "Configure Java 17 for SonarCloud"
-
-    - task: PublishCodeCoverageResults@2
-      displayName: "📊 Publish Backend Coverage (Go)"
-      inputs:
-        codeCoverageTool: 'Cobertura'
-        summaryFileLocation: 'Golang/coverage.out'
-        reportDirectory: 'Golang'
-        failIfCoverageEmpty: false
-
-    - script: |
-        echo "🔍 DEBUG: verificando cobertura BACKEND"
-        echo "Directorio actual: $(pwd)"
-        ls -lah Golang || echo "No existe carpeta Golang"
-        echo "Primeras líneas del coverage.out:"
-        head -n 20 Golang/coverage.out || echo "No existe coverage.out"
-      displayName: "DEBUG Coverage Backend antes de Sonar"
-
     - task: SonarCloudAnalyze@3
-      displayName: "Run SonarCloud Analysis"
+      displayName: "Run SonarCloud Analysis (Backend)"
       inputs:
         jdkversion: 'JAVA_HOME_17_X64'
 
     - task: SonarCloudPublish@3
-      displayName: "Publish SonarCloud Results"
+      displayName: "Publish SonarCloud Results (Backend)"
       inputs:
         pollingTimeoutSec: '300'
 
@@ -399,6 +385,7 @@ stages:
         appName: 'docker-frontend-qa'
         containers: |
           $(acrLoginServer)/$(frontendImage):latest
+
 # ===========================
 # STAGE 2.5: E2E QA (Cypress)
 # ===========================
@@ -436,7 +423,6 @@ stages:
           --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true" \
           --config baseUrl=https://$(webAppFrontendQA).azurewebsites.net,video=true,videoCompression=32
       displayName: "Run Cypress (headless, JUnit)"
-
 
     - task: PublishTestResults@2
       displayName: "Publicar resultados Cypress (JUnit)"

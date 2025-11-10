@@ -66,34 +66,26 @@ stages:
       inputs:
         script: |
           cd frontend
-
           echo "Node/npm:"
           node -v
           npm -v
-
-          # Solo la variable que necesita tu app
           echo "REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL_QA}" > .env
           echo "Usando .env:" && cat .env
-
           echo "Config npm para CI robusto"
           npm config set engine-strict false
           npm config set legacy-peer-deps true
           npm config set audit false
           npm config set fund false
-
           echo "📦 npm ci (fallback a npm install si falla)"
           if ! npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm; then
             echo "npm ci falló. Fallback a npm install limpio…"
             rm -rf node_modules package-lock.json
             npm install --no-audit --no-fund --legacy-peer-deps --unsafe-perm
           fi
-
           echo "🧪 Tests (fallan si hay errores reales)"
           npm test -- --watchAll=false
-
           echo "🌍 Build QA sin cortar por warnings (CI=false + sin ESLint en build)"
           CI=false DISABLE_ESLINT_PLUGIN=true npm run build
-
           echo "🧩 Agrego server de Node para Azure App Service"
           cat > build/server.js <<'EOF'
           const express = require("express");
@@ -106,7 +98,6 @@ stages:
           app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
           app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
           EOF
-
           cat > build/package.json <<'EOF'
           {
             "name": "frontend-spa",
@@ -118,7 +109,6 @@ stages:
             }
           }
           EOF
-
           cd build
           npm install --production --no-audit --no-fund
 
@@ -174,13 +164,12 @@ stages:
           -Dsonar.javascript.lcov.reportPaths=$(Build.SourcesDirectory)/frontend/coverage/lcov.info
           -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
 
-    # Java para Sonar (usa JAVA_HOME)
     - task: JavaToolInstaller@0
-      displayName: "Use Java 17"
+      displayName: "Install Java 17"
       inputs:
         versionSpec: '17'
         jdkArchitectureOption: 'x64'
-        jdkSourceOption: 'PreInstalled'
+        jdkSourceOption: 'Download'
 
     - task: SonarCloudAnalyze@3
       displayName: "SonarCloud Analyze (Frontend)"
@@ -201,11 +190,11 @@ stages:
         archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-qa.zip'
         replaceExistingArchive: true
 
-    - task: ecdc45f6-832d-4ad9-b52b-ee49e94659be@1
+    - task: PublishPipelineArtifact@1
       displayName: "Publish Frontend QA Artifact"
       inputs:
-        path: $(Build.ArtifactStagingDirectory)/frontend-qa.zip
-        artifactName: drop_front_qa
+        targetPath: '$(Build.ArtifactStagingDirectory)/frontend-qa.zip'
+        artifactName: 'drop_front_qa'
 
   # ---------- FRONTEND PROD ----------
   - job: BuildFrontPROD
@@ -227,7 +216,6 @@ stages:
           cat .env
           npm install
           npm run build
-
           echo "🧩 Adding Node server for Azure..."
           cat > build/server.js <<'EOF'
           const express = require("express");
@@ -240,7 +228,6 @@ stages:
           app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
           app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
           EOF
-
           cat > build/package.json <<'EOF'
           {
             "name": "frontend-spa",
@@ -252,7 +239,6 @@ stages:
             }
           }
           EOF
-
           cd build
           npm install --production
 
@@ -265,11 +251,11 @@ stages:
         archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-prod.zip'
         replaceExistingArchive: true
 
-    - task: ecdc45f6-832d-4ad9-b52b-ee49e94659be@1
+    - task: PublishPipelineArtifact@1
       displayName: "Publish Frontend PROD Artifact"
       inputs:
-        path: $(Build.ArtifactStagingDirectory)/frontend-prod.zip
-        artifactName: drop_front_prod
+        targetPath: '$(Build.ArtifactStagingDirectory)/frontend-prod.zip'
+        artifactName: 'drop_front_prod'
 
   # ---------- BACKEND (Go) ----------
   - job: BuildAndTestBack
@@ -312,18 +298,16 @@ stages:
           echo "Verificando cobertura Go..."
           ls -lah
           head -n 10 coverage.out || echo "No existe coverage.out"
-          mv coverage.out ../Golang/coverage.out
           echo "🔨 Building Go binary for Linux..."
           GOOS=linux GOARCH=amd64 go build -o ../app
         failOnStderr: true
 
-    # Java 17 para SonarCloud (sin UseJavaVersion)
     - task: JavaToolInstaller@0
-      displayName: "Use Java 17"
+      displayName: "Install Java 17"
       inputs:
         versionSpec: '17'
         jdkArchitectureOption: 'x64'
-        jdkSourceOption: 'PreInstalled'
+        jdkSourceOption: 'Download'
 
     - task: PublishCodeCoverageResults@2
       displayName: "📊 Publish Backend Coverage (Go)"
@@ -360,11 +344,11 @@ stages:
         archiveFile: '$(Build.ArtifactStagingDirectory)/backend.zip'
         replaceExistingArchive: true
 
-    - task: ecdc45f6-832d-4ad9-b52b-ee49e94659be@1
+    - task: PublishPipelineArtifact@1
       displayName: "Publish Backend Artifact"
       inputs:
-        path: $(Build.ArtifactStagingDirectory)/backend.zip
-        artifactName: drop_back
+        targetPath: '$(Build.ArtifactStagingDirectory)/backend.zip'
+        artifactName: 'drop_back'
 
 # ===========================
 # STAGE 2: BUILD & PUSH IMAGES
@@ -497,10 +481,11 @@ stages:
       runOnce:
         deploy:
           steps:
-          - task: 30f35852-3f7e-4c0c-9a88-e127b4f97211@1
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Frontend PROD Artifact'
             inputs:
-              alias: current
-              artifact: drop_front_prod
+              artifact: 'drop_front_prod'
+              path: '$(Pipeline.Workspace)/drop_front_prod'
           - task: AzureWebApp@1
             displayName: "Deploy Frontend to PROD Web App"
             inputs:
@@ -517,10 +502,11 @@ stages:
       runOnce:
         deploy:
           steps:
-          - task: 30f35852-3f7e-4c0c-9a88-e127b4f97211@1
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Backend Artifact'
             inputs:
-              alias: current
-              artifact: drop_back
+              artifact: 'drop_back'
+              path: '$(Pipeline.Workspace)/drop_back'
           - task: AzureWebApp@1
             displayName: "Deploy Backend to PROD Web App"
             inputs:

@@ -108,6 +108,7 @@ stages:
             npm install --production --no-audit --no-fund
 
       # --- Coverage Frontend (Jest) ---
+      # (Se siguen generando por si quieres verlos en Azure DevOps)
       - script: |
           set -e
           cd frontend
@@ -122,6 +123,10 @@ stages:
           summaryFileLocation: 'frontend/coverage/cobertura-coverage.xml'
           reportDirectory: 'frontend/coverage'
           failIfCoverageEmpty: false
+
+      # =========================================================
+      # ▼▼ ¡TAREAS DE SONAR ELIMINADAS DEL FRONTEND! ▼▼
+      # =========================================================
 
       - task: ArchiveFiles@2
         displayName: "Zip Frontend QA build"
@@ -210,14 +215,19 @@ stages:
           version: '1.22.1'
         displayName: "Use Go 1.22.1"
 
-      # --- SonarCloud (Backend) ---
+      # =========================================================
+      # ▼▼ ¡COMO EL DE TU AMIGO! ▼▼
+      # Usamos 'configMode: file' para leer el sonar-project.properties
+      # =========================================================
       - task: SonarCloudPrepare@3
         displayName: "SonarCloud Prepare (Backend)"
         inputs:
           SonarCloud: '$(sonarServiceConnection)'
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
-          configMode: 'file' # <-- Lee sonar-project.properties
+          configMode: 'file' # <-- ¡LA CLAVE!
+          # El projectKey, sonar.sources, etc., se leen del archivo
+          # sonar-project.properties que creaste en la raíz.
 
       - task: CmdLine@2
         displayName: "Tidy, Test (coverage) & Build Backend"
@@ -388,7 +398,7 @@ stages:
   displayName: "🚀 Deploy to Production (Manual Approval)"
   dependsOn:
     - DeployQA
-    - E2E_QA # <-- CORRECCIÓN: E2S_QA -> E2E_QA
+    - E2E_QA
   condition: succeeded()
   jobs:
     - deployment: DeployFrontendPROD

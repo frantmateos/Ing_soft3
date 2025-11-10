@@ -19,6 +19,9 @@ COPY . ./
 RUN if [ -n "$REACT_APP_BACKEND_URL" ]; then echo "REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL" > .env; fi
 RUN npm run build
 
+RUN ls -lah /app/build && test -f /app/build/index.html
+
+
 # ---------- 2️⃣ Nginx stage ----------
 FROM --platform=linux/amd64 nginx:alpine
 COPY --from=build /app/build /usr/share/nginx/html

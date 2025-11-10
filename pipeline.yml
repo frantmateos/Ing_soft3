@@ -61,6 +61,17 @@ stages:
         versionSpec: '16.x'
       displayName: "Set Node.js version (16.x)"
 
+    # Tarea de verificación de Java
+    - task: CmdLine@2
+      displayName: "Verify JAVA_HOME (Frontend)"
+      inputs:
+        script: |
+          echo "--- VERIFICANDO JAVA ---"
+          echo "Variable JAVA_HOME es: %JAVA_HOME%"
+          echo "Comando 'java -version':"
+          java -version
+          echo "--- FIN VERIFICACIÓN ---"
+
     - task: CmdLine@2
       displayName: "Install, Test & Build Frontend for QA"
       inputs:
@@ -164,17 +175,15 @@ stages:
           -Dsonar.javascript.lcov.reportPaths=$(Build.SourcesDirectory)/frontend/coverage/lcov.info
           -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
 
-    - task: JavaToolInstaller@0
-      displayName: "Install Java 17"
-      inputs:
-        versionSpec: '17'
-        jdkArchitectureOption: 'x64'
-        jdkSourceOption: 'Download'
+    # =========================================================
+    # ▼▼ TAREA JavaToolInstaller ELIMINADA ▼▼
+    # Se usará el JAVA_HOME preinstalado en el agente
+    # =========================================================
 
     - task: SonarCloudAnalyze@3
       displayName: "SonarCloud Analyze (Frontend)"
       inputs:
-        jdkversion: 'JAVA_HOME'
+        jdkversion: 'JAVA_HOME' # <-- Esto usa la variable del agente
 
     - task: SonarCloudPublish@3
       displayName: "SonarCloud Publish (Frontend, Quality Gate)"
@@ -269,6 +278,17 @@ stages:
       inputs:
         version: '1.22.1'
       displayName: "Use Go version"
+      
+    # Tarea de verificación de Java
+    - task: CmdLine@2
+      displayName: "Verify JAVA_HOME (Backend)"
+      inputs:
+        script: |
+          echo "--- VERIFICANDO JAVA ---"
+          echo "Variable JAVA_HOME es: %JAVA_HOME%"
+          echo "Comando 'java -version':"
+          java -version
+          echo "--- FIN VERIFICACIÓN ---"
 
     # SonarCloud PREPARE (Backend)
     - task: SonarCloudPrepare@3
@@ -302,12 +322,10 @@ stages:
           GOOS=linux GOARCH=amd64 go build -o ../app
         failOnStderr: true
 
-    - task: JavaToolInstaller@0
-      displayName: "Install Java 17"
-      inputs:
-        versionSpec: '17'
-        jdkArchitectureOption: 'x64'
-        jdkSourceOption: 'Download'
+    # =========================================================
+    # ▼▼ TAREA JavaToolInstaller ELIMINADA ▼▼
+    # Se usará el JAVA_HOME preinstalado en el agente
+    # =========================================================
 
     - task: PublishCodeCoverageResults@2
       displayName: "📊 Publish Backend Coverage (Go)"
@@ -328,7 +346,7 @@ stages:
     - task: SonarCloudAnalyze@3
       displayName: "Run SonarCloud Analysis (Backend)"
       inputs:
-        jdkversion: 'JAVA_HOME'
+        jdkversion: 'JAVA_HOME' # <-- Esto usa la variable del agente
 
     - task: SonarCloudPublish@3
       displayName: "Publish SonarCloud Results (Backend)"

@@ -36,13 +36,13 @@ variables:
 - name: sonarOrg
   value: 'frantmateos'
 - name: sonarFrontProjectKey
-  value: 'frantmateos_frontend_qa'
+  value: 'frantmateos_Ing_soft3_frontend' # <-- Key del Monorepo (ajusta si es necesario)
 - name: sonarFrontProjectName
-  value: 'frontend-qa'
+  value: 'frontend'
 - name: sonarBackProjectKey
-  value: 'frantmateos_Ing_soft3'
+  value: 'frantmateos_Ing_soft3_backend' # <-- Key del Monorepo (ajusta si es necesario)
 - name: sonarBackProjectName
-  value: 'Ing_soft3'
+  value: 'backend'
 
 stages:
 # ===========================
@@ -168,17 +168,12 @@ stages:
         organization: '$(sonarOrg)'
         scannerMode: 'CLI'
         configMode: 'manual'
-        cliProjectKey: '$(sonarFrontProjectKey)'
+        cliProjectKey: '$(sonarFrontProjectKey)' # <-- Usa la nueva key
         cliProjectName: '$(sonarFrontProjectName)'
         cliSources: 'frontend/src'
         cliOptions: >
           -Dsonar.javascript.lcov.reportPaths=$(Build.SourcesDirectory)/frontend/coverage/lcov.info
           -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
-
-    # =========================================================
-    # ▼▼ TAREA JavaToolInstaller ELIMINADA ▼▼
-    # Se usará el JAVA_HOME preinstalado en el agente
-    # =========================================================
 
     - task: SonarCloudAnalyze@3
       displayName: "SonarCloud Analyze (Frontend)"
@@ -298,7 +293,7 @@ stages:
         organization: '$(sonarOrg)'
         scannerMode: 'CLI'
         configMode: 'manual'
-        cliProjectKey: '$(sonarBackProjectKey)'
+        cliProjectKey: '$(sonarBackProjectKey)' # <-- Usa la nueva key
         cliProjectName: '$(sonarBackProjectName)'
         cliSources: 'Golang'
         cliOptions: >
@@ -321,11 +316,6 @@ stages:
           echo "🔨 Building Go binary for Linux..."
           GOOS=linux GOARCH=amd64 go build -o ../app
         failOnStderr: true
-
-    # =========================================================
-    # ▼▼ TAREA JavaToolInstaller ELIMINADA ▼▼
-    # Se usará el JAVA_HOME preinstalado en el agente
-    # =========================================================
 
     - task: PublishCodeCoverageResults@2
       displayName: "📊 Publish Backend Coverage (Go)"

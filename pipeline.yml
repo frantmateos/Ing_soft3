@@ -30,6 +30,20 @@ variables:
 - name: frontendImage
   value: 'frontend'
 
+# SonarCloud
+- name: sonarServiceConnection
+  value: 'SonarCloud'
+- name: sonarOrg
+  value: 'frantmateos'
+- name: sonarFrontProjectKey
+  value: 'frantmateos_frontend_qa'
+- name: sonarFrontProjectName
+  value: 'frontend-qa'
+- name: sonarBackProjectKey
+  value: 'frantmateos_Ing_soft3'
+- name: sonarBackProjectName
+  value: 'Ing_soft3'
+
 stages:
 # ===========================
 # STAGE 1: BUILD & TEST
@@ -108,13 +122,15 @@ stages:
           cd build
           npm install --production --no-audit --no-fund
 
-    # --- 🧪 Coverage de Jest + publicar en Azure DevOps ---
+    # --- Coverage de Jest + publicar en Azure DevOps ---
     - script: |
         cd frontend
         echo "🧪 Ejecutando Jest con coverage (lcov + cobertura)..."
         npm test -- --coverage --watchAll=false --coverageReporters=lcov --coverageReporters=cobertura
         echo "📂 Archivos generados en coverage:"
         ls -lah coverage || dir coverage
+        echo "Primeras líneas del lcov.info:"
+        head -n 10 coverage/lcov.info || echo "lcov.info no encontrado"
       displayName: "Run Jest with Coverage"
 
     - task: PublishCodeCoverageResults@2
@@ -124,27 +140,52 @@ stages:
         summaryFileLocation: 'frontend/coverage/cobertura-coverage.xml'
         reportDirectory: 'frontend/coverage'
         failIfCoverageEmpty: false
-      condition: always()
 
-    # --- 🧭 SonarCloud del FRONTEND (simple) ---
+    - script: |
+        echo "🔍 DEBUG: verificando cobertura FRONTEND"
+        echo "Directorio actual: $(pwd)"
+        ls -R frontend/coverage || echo "No existe carpeta coverage"
+        echo "Primeras líneas del lcov.info:"
+        head -n 20 frontend/coverage/lcov.info || echo "No existe lcov.info"
+      displayName: "DEBUG Coverage Frontend antes de Sonar"
+
+    # --- Normalizar rutas del lcov (si hiciera falta) ---
+    - script: |
+        if [ -f frontend/coverage/lcov.info ]; then
+          cd frontend/coverage
+          echo "🧩 Normalizando rutas absolutas -> relativas en lcov.info (si aplica)"
+          sed -i 's|/Users/.*/frontend/src|frontend/src|g' lcov.info || true
+          head -n 10 lcov.info || true
+        fi
+      displayName: "Fix lcov.info paths for SonarCloud"
+
+    # --- SonarCloud del FRONTEND ---
     - task: SonarCloudPrepare@3
       displayName: "SonarCloud Prepare (Frontend)"
       inputs:
-        SonarQube: 'SonarCloud'
-        organization: 'frantmateos'
+        SonarQube: '$(sonarServiceConnection)'
+        organization: '$(sonarOrg)'
         scannerMode: 'CLI'
         configMode: 'manual'
-        cliProjectKey: 'frantmateos_frontend_qa'
-        cliProjectName: 'frontend-qa'
+        cliProjectKey: '$(sonarFrontProjectKey)'
+        cliProjectName: '$(sonarFrontProjectName)'
         cliSources: 'frontend/src'
         cliOptions: >
-          -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
           -Dsonar.javascript.lcov.reportPaths=$(Build.SourcesDirectory)/frontend/coverage/lcov.info
+          -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
+
+    # Java para Sonar (usa JAVA_HOME)
+    - task: JavaToolInstaller@0
+      displayName: "Use Java 17"
+      inputs:
+        versionSpec: '17'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
 
     - task: SonarCloudAnalyze@3
       displayName: "SonarCloud Analyze (Frontend)"
       inputs:
-        jdkversion: 'JAVA_HOME_17_X64'
+        jdkversion: 'JAVA_HOME'
 
     - task: SonarCloudPublish@3
       displayName: "SonarCloud Publish (Frontend, Quality Gate)"
@@ -243,38 +284,46 @@ stages:
         version: '1.22.1'
       displayName: "Use Go version"
 
+    # SonarCloud PREPARE (Backend)
+    - task: SonarCloudPrepare@3
+      displayName: "SonarCloud Prepare (Backend)"
+      inputs:
+        SonarQube: '$(sonarServiceConnection)'
+        organization: '$(sonarOrg)'
+        scannerMode: 'CLI'
+        configMode: 'manual'
+        cliProjectKey: '$(sonarBackProjectKey)'
+        cliProjectName: '$(sonarBackProjectName)'
+        cliSources: 'Golang'
+        cliOptions: >
+          -Dsonar.exclusions=**/vendor/**,**/tests/**
+          -Dsonar.language=go
+          -Dsonar.go.coverage.reportPaths=$(Build.SourcesDirectory)/Golang/coverage.out
+
     - task: CmdLine@2
-      displayName: "Tidy, Test & Build Backend (coverage)"
+      displayName: "Tidy, Test & Build Backend"
       inputs:
         script: |
           cd Golang
           echo "📦 Tidying Go modules..."
           go mod tidy
-
-          echo "🧪 Running Go tests with coverage..."
+          echo "🧪 Running Go tests..."
           go test ./... -coverprofile=coverage.out -covermode=atomic
-
+          echo "Verificando cobertura Go..."
+          ls -lah
+          head -n 10 coverage.out || echo "No existe coverage.out"
+          mv coverage.out ../Golang/coverage.out
           echo "🔨 Building Go binary for Linux..."
           GOOS=linux GOARCH=amd64 go build -o ../app
-
-          echo "✅ Coverage generado en: $(pwd)/coverage.out"
         failOnStderr: true
 
-    # (Opcional) Publicar JUnit de Go — activar si querés ver tests como “Test Results”
-    # - script: |
-    #     cd Golang
-    #     go install gotest.tools/gotestsum@latest
-    #     gotestsum --format=standard-verbose --junitfile test-results-go.xml -- -covermode=atomic -coverprofile=coverage.out ./...
-    #   displayName: "Tests Go (JUnit + Coverage)"
-    #
-    # - task: PublishTestResults@2
-    #   displayName: "Publish backend test results (JUnit)"
-    #   inputs:
-    #     testResultsFormat: 'JUnit'
-    #     testResultsFiles: 'Golang/test-results-go.xml'
-    #     mergeTestResults: true
-    #     failTaskOnFailedTests: true
-    #   condition: always()
+    # Java 17 para SonarCloud (sin UseJavaVersion)
+    - task: JavaToolInstaller@0
+      displayName: "Use Java 17"
+      inputs:
+        versionSpec: '17'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
 
     - task: PublishCodeCoverageResults@2
       displayName: "📊 Publish Backend Coverage (Go)"
@@ -283,28 +332,19 @@ stages:
         summaryFileLocation: 'Golang/coverage.out'
         reportDirectory: 'Golang'
         failIfCoverageEmpty: false
-      condition: always()
 
-    # SonarCloud para BACKEND (Go)
-    - task: SonarCloudPrepare@3
-      displayName: "SonarCloud Prepare (Backend)"
-      inputs:
-        SonarQube: 'SonarCloud'
-        organization: 'frantmateos'
-        scannerMode: 'CLI'
-        configMode: 'manual'
-        cliProjectKey: 'frantmateos_Ing_soft3'
-        cliProjectName: 'Ing_soft3'
-        cliSources: 'Golang'
-        cliOptions: >
-          -Dsonar.exclusions=**/vendor/**,**/tests/**
-          -Dsonar.languages=go
-          -Dsonar.go.coverage.reportPaths=$(Build.SourcesDirectory)/Golang/coverage.out
+    - script: |
+        echo "🔍 DEBUG: verificando cobertura BACKEND"
+        echo "Directorio actual: $(pwd)"
+        ls -lah Golang || echo "No existe carpeta Golang"
+        echo "Primeras líneas del coverage.out:"
+        head -n 20 Golang/coverage.out || echo "No existe coverage.out"
+      displayName: "DEBUG Coverage Backend antes de Sonar"
 
     - task: SonarCloudAnalyze@3
       displayName: "Run SonarCloud Analysis (Backend)"
       inputs:
-        jdkversion: 'JAVA_HOME_17_X64'
+        jdkversion: 'JAVA_HOME'
 
     - task: SonarCloudPublish@3
       displayName: "Publish SonarCloud Results (Backend)"
@@ -440,7 +480,7 @@ stages:
         publishLocation: 'Container'
 
 # ===========================
-# STAGE 3: DEPLOY PROD
+# STAGE 4: DEPLOY PROD
 # ===========================
 - stage: DeployPROD
   displayName: "🚀 Deploy to Production (Manual Approval)"

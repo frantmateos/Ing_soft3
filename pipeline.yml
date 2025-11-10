@@ -386,6 +386,8 @@ stages:
         repository: '$(frontendImage)'
         dockerfile: 'frontend/Dockerfile'
         buildContext: './frontend'
+        buildArguments: |
+          REACT_APP_BACKEND_URL=https://backend-instance-qa.brazilsouth.azurecontainer.io:8081
         tags: |
           latest
           $(Build.BuildId)

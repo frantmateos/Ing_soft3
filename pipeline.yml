@@ -422,7 +422,7 @@ stages:
             --ports 8081 \
             --os-type Linux \
             --registry-login-server $(acrLoginServer) \
-            --registry-username $(acrLoginServer) \
+            --registry-username IngSoft3UCC \
             --registry-password $(AZURE_ACR_PASSWORD) \
             --environment-variables \
               PORT=8081 \

@@ -351,6 +351,13 @@ stages:
   - job: DockerBuildPush
     displayName: "Build & Push Backend and Frontend images"
     steps:
+    - script: |
+        echo "🧩 DEBUG: Contenido del contexto Docker antes del build"
+        ls -R Golang | head -n 50
+        echo "Dockerfile:"
+        cat Golang/Dockerfile | head -n 30
+      displayName: "Verificar contenido Docker antes del build"
+
     - task: Docker@2
       displayName: "Build & Push Backend Image"
       inputs:
@@ -362,6 +369,12 @@ stages:
         tags: |
           latest
           $(Build.BuildId)
+    
+    - script: |
+        echo "✅ Imagenes en local después del build:"
+        docker images | grep backend || echo "No se encontró imagen backend"
+      displayName: "Listar imágenes locales (post-build)"
+
 
     - task: Docker@2
       displayName: "Build & Push Frontend Image"

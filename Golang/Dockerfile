@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/
 WORKDIR /app
 COPY --from=builder /src/app .
 
-EXPOSE 8181
-ENV PORT=8181
+EXPOSE 8081
+ENV PORT=8081
 
 CMD ["./app"]

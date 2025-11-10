@@ -32,7 +32,8 @@ COPY --from=builder /app/app .
 
 # Expose the correct port
 EXPOSE 8081
-ENV PORT=8081
+
+#ENV PORT=8081
 
 # Run the compiled app
 CMD ["./app"]

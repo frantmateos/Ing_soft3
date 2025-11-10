@@ -1,5 +1,8 @@
+# ===========================
 # Backend multi-stage build for Go
-# Builder stage
+# ===========================
+
+# ---------- 1️⃣ Builder stage ----------
 FROM golang:1.22 AS builder
 WORKDIR /src
 
@@ -10,19 +13,26 @@ RUN go mod download
 # Copy the rest of the backend sources
 COPY Golang/ ./
 
-# Enable cgo if needed (sqlite3) and run tests + build
+# Enable CGO (needed for mysql) and build binary
 ENV CGO_ENABLED=1
 RUN go test ./... -coverprofile=coverage.out -covermode=atomic || true
-RUN go build -o app
+RUN go build -o /app/app .
 
-# Final image
+# ---------- 2️⃣ Final runtime stage ----------
 FROM debian:bookworm-slim
+
+# Install CA certificates to allow TLS MySQL connections
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
+# Working directory for the app
 WORKDIR /app
-COPY --from=builder /src/app .
 
+# Copy only the built binary
+COPY --from=builder /app/app .
+
+# Expose the correct port
 EXPOSE 8081
 ENV PORT=8081
 
+# Run the compiled app
 CMD ["./app"]

@@ -369,6 +369,8 @@ stages:
         tags: |
           latest
           $(Build.BuildId)
+        arguments: '--no-cache'
+
     
     - script: |
         echo "✅ Imagenes en local después del build:"

@@ -31,23 +31,16 @@ variables:
   - name: frontendImage
     value: 'frontend'
 
-  # ====== SonarCloud (tomado del pipeline de tu amigo y adaptado) ======
+  # ====== SonarCloud ======
   - name: sonarServiceConnection
-    value: 'SonarCloud'           # tu Service Connection
+    value: 'SonarCloud'
   - name: sonarOrg
-    value: 'frantmateos'          # tu organización
-  - name: sonarFrontProjectKey
-    value: 'Ing_soft3_frontend'   # proyecto FRONT en SonarCloud
-  - name: sonarFrontProjectName
-    value: 'frontend'
-  - name: sonarBackProjectKey
-    value: 'Ing_soft3_backend'    # proyecto BACK en SonarCloud
-  - name: sonarBackProjectName
-    value: 'backend'
+    value: 'frantmateos'
 
 stages:
+
 # ======================================================
-# =                BUILD & TEST (CI)                  =
+# =         BUILD & TEST (CI)                        =
 # ======================================================
 - stage: BuildAndTest
   displayName: "Build, Test Frontend & Backend"
@@ -63,37 +56,31 @@ stages:
         displayName: "Set Node.js 16.x"
 
       - task: CmdLine@2
-        displayName: "Install, Test & Build Frontend for QA"
+        displayName: "Install, Test (con Cobertura) & Build Frontend"
         inputs:
           script: |
             set -e
             cd frontend
-
-            echo "Node/npm:"
-            node -v
-            npm -v
-
             echo "REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL_QA}" > .env
-            echo "Usando .env:" && cat .env
-
             npm config set engine-strict false
             npm config set legacy-peer-deps true
             npm config set audit false
             npm config set fund false
-
-            # deps
+            echo "📦 npm ci"
             if ! npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm; then
               rm -rf node_modules package-lock.json
               npm install --no-audit --no-fund --legacy-peer-deps --unsafe-perm
             fi
+            
+            # --- Generar Cobertura para Sonar ---
+            echo "🧪 Tests (con lcov para Sonar)"
+            # Esta línea es la que crea el 'frontend/coverage/lcov.info'
+            npm test -- --coverage --watchAll=false --coverageReporters=lcov --coverageReporters=cobertura
 
-            # tests (Jest)
-            npm test -- --watchAll=false
-
-            # build (sin cortar por warnings)
+            echo "🌍 Build QA"
             CI=false DISABLE_ESLINT_PLUGIN=true npm run build
-
-            # server Node para Azure
+            
+            echo "🧩 Server Node para Azure App Service"
             cat > build/server.js <<'EOF'
             const express = require("express");
             const path = require("path");
@@ -105,26 +92,19 @@ stages:
             app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
             app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
             EOF
-
             cat > build/package.json <<'EOF'
             {
               "name": "frontend-spa",
               "version": "1.0.0",
               "scripts": { "start": "node server.js" },
-              "dependencies": { "express": "^4.18.2", "compression": "^1.7.4" }
+              "dependencies": {
+                "express": "^4.18.2",
+                "compression": "^1.7.4"
+              }
             }
             EOF
-
-            cd build && npm install --production --no-audit --no-fund
-
-      # ==== PUBLICAR COVERAGE (como en el pipeline de tu amigo) ====
-      - task: CmdLine@2
-        displayName: "Run Jest with Coverage (lcov + cobertura)"
-        inputs:
-          script: |
-            set -e
-            cd frontend
-            npm test -- --coverage --watchAll=false --coverageReporters=lcov --coverageReporters=cobertura
+            cd build
+            npm install --production --no-audit --no-fund
 
       - task: PublishCodeCoverageResults@2
         displayName: "Publish Frontend Coverage (Cobertura)"
@@ -144,10 +124,20 @@ stages:
           replaceExistingArchive: true
 
       - task: PublishPipelineArtifact@1
-        displayName: "Publish Frontend QA Artifact"
+        displayName: "Publish Frontend QA Artifact (dist)"
         inputs:
           targetPath: '$(Build.ArtifactStagingDirectory)/frontend-qa.zip'
           artifactName: 'drop_front_qa'
+      
+      # =========================================================
+      # ▼▼ TAREA CLAVE #1: PUBLICAR LA COBERTURA DEL FRONTEND ▼▼
+      # =========================================================
+      - task: PublishPipelineArtifact@1
+        displayName: 'Publish Frontend Coverage Artifact (lcov)'
+        inputs:
+          targetPath: 'frontend/coverage' # Sube la carpeta 'coverage' completa
+          artifactName: 'frontend_coverage_lcov'
+      # =========================================================
 
   # ---------- FRONTEND PROD ----------
   - job: BuildFrontPROD
@@ -157,7 +147,6 @@ stages:
         inputs:
           versionSpec: '16.x'
         displayName: "Set Node.js 16.x"
-
       - task: CmdLine@2
         displayName: "Build Frontend for Production"
         inputs:
@@ -165,11 +154,9 @@ stages:
             set -e
             cd frontend
             echo "REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL_PROD}" > .env
-            cat .env
             npm install
             npm run build
-
-            # server Node para Azure
+            echo "Server Node para Azure"
             cat > build/server.js <<'EOF'
             const express = require("express");
             const path = require("path");
@@ -181,18 +168,19 @@ stages:
             app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
             app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
             EOF
-
             cat > build/package.json <<'EOF'
             {
               "name": "frontend-spa",
               "version": "1.0.0",
               "scripts": { "start": "node server.js" },
-              "dependencies": { "express": "^4.18.2", "compression": "^1.7.4" }
+              "dependencies": {
+                "express": "^4.18.2",
+                "compression": "^1.7.4"
+              }
             }
             EOF
-
-            cd build && npm install --production
-
+            cd build
+            npm install --production
       - task: ArchiveFiles@2
         displayName: "Zip Frontend PROD build"
         inputs:
@@ -201,24 +189,42 @@ stages:
           archiveType: 'zip'
           archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-prod.zip'
           replaceExistingArchive: true
-
       - task: PublishPipelineArtifact@1
         displayName: "Publish Frontend PROD Artifact"
         inputs:
           targetPath: '$(Build.ArtifactStagingDirectory)/frontend-prod.zip'
           artifactName: 'drop_front_prod'
 
-  # ---------- BACKEND (Go) ----------
+  # ---------- BACKEND (Go) + SONARQUBE ----------
   - job: BuildAndTestBack
-    displayName: "Build & Test Backend (Go)"
+    displayName: "Build & Test Backend (Go) + SonarQube"
+    dependsOn: BuildAndTestFrontQA # <-- Se asegura que la cobertura del Front ya exista
     steps:
       - checkout: self
-        fetchDepth: 0
+        fetchDepth: 0 # <-- Requerido por Sonar
+
+      # =========================================================
+      # ▼▼ TAREA CLAVE #2: DESCARGAR LA COBERTURA DEL FRONTEND ▼▼
+      # =========================================================
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Download Frontend Coverage Artifact (lcov)'
+        inputs:
+          artifact: 'frontend_coverage_lcov'
+          # La descargamos en la ruta exacta donde Sonar la va a buscar
+          path: '$(Build.SourcesDirectory)/frontend/coverage' 
 
       - task: GoTool@0
         inputs:
           version: '1.22.1'
         displayName: "Use Go 1.22.1"
+
+      - task: SonarCloudPrepare@3
+        displayName: "SonarCloud Prepare (Monorepo)"
+        inputs:
+          SonarCloud: '$(sonarServiceConnection)'
+          organization: '$(sonarOrg)'
+          scannerMode: 'CLI'
+          configMode: 'file' # <-- ¡LA CLAVE! Lee sonar-project.properties
 
       - task: CmdLine@2
         displayName: "Tidy, Test (coverage) & Build Backend"
@@ -226,12 +232,16 @@ stages:
           script: |
             set -e
             cd Golang
+            echo "go mod tidy"
             go mod tidy
+            
+            echo "Tests con coverage (se guarda en Golang/coverage.out)"
+            # Generamos el reporte de cobertura donde Sonar lo espera
             go test ./... -coverprofile=coverage.out -covermode=atomic
-            echo "Primeras líneas coverage.out:" && head -n 20 coverage.out || true
+            
+            echo "🔨 Build linux amd64"
             GOOS=linux GOARCH=amd64 go build -o ../app
 
-      # ==== PUBLICAR COVERAGE BACK (como en el pipeline de tu amigo) ====
       - task: PublishCodeCoverageResults@2
         displayName: "Publish Backend Coverage (Go)"
         inputs:
@@ -239,33 +249,25 @@ stages:
           summaryFileLocation: 'Golang/coverage.out'
           reportDirectory: 'Golang'
           failIfCoverageEmpty: false
-
-      # ==== SONARCLOUD BACKEND (traído del ejemplo y adaptado) ====
-      - task: SonarCloudPrepare@3
-        displayName: "SonarCloud Prepare (Backend)"
-        inputs:
-          SonarQube: '$(sonarServiceConnection)'
-          organization: '$(sonarOrg)'
-          scannerMode: 'CLI'
-          configMode: 'file'
-          cliProjectKey: '$(sonarBackProjectKey)'
-          cliProjectName: '$(sonarBackProjectName)'
-          extraProperties: |
-            sonar.projectBaseDir=$(Build.SourcesDirectory)/Golang
-            sonar.sources=.
-            sonar.exclusions=**/vendor/**,**/tests/**
-            sonar.language=go
-            sonar.go.coverage.reportPaths=coverage.out
-            sonar.branch.name=$(Build.SourceBranchName)
-            sonar.verbose=true
+      
+      - script: |
+          echo "🔍 [DEBUG] Verificando AMBOS reportes de cobertura"
+          echo "--- Revisando reporte de FRONTEND ---"
+          ls -lah $(Build.SourcesDirectory)/frontend/coverage/lcov.info
+          head -n 5 $(Build.SourcesDirectory)/frontend/coverage/lcov.info
+          
+          echo "--- Revisando reporte de BACKEND ---"
+          ls -lah $(Build.SourcesDirectory)/Golang/coverage.out
+          head -n 5 $(Build.SourcesDirectory)/Golang/coverage.out
+        displayName: "DEBUG: Verificar reportes de Cobertura"
 
       - task: SonarCloudAnalyze@3
-        displayName: "Run SonarCloud Analysis (Backend)"
+        displayName: "Run SonarCloud Analysis (Monorepo)"
         inputs:
-          jdkversion: 'JAVA_HOME_17_X64'   # igual al de tu amigo
+          jdkversion: 'JAVA_HOME'
 
       - task: SonarCloudPublish@3
-        displayName: "Publish SonarCloud Results (Backend)"
+        displayName: "Publish SonarCloud Results (Monorepo)"
         inputs:
           pollingTimeoutSec: '300'
 
@@ -285,7 +287,7 @@ stages:
           artifactName: 'drop_back'
 
 # ======================================================
-# =            BUILD & PUSH DOCKER IMAGES              =
+# =         BUILD & PUSH DOCKER IMAGES                 =
 # ======================================================
 - stage: BuildAndPushImages
   displayName: "🐳 Build & Push Docker Images"
@@ -320,7 +322,7 @@ stages:
               $(Build.BuildId)
 
 # ======================================================
-# =                     DEPLOY QA                      =
+# =                 DEPLOY QA                          =
 # ======================================================
 - stage: DeployQA
   displayName: "🚀 Deploy to QA (Containers)"
@@ -345,7 +347,7 @@ stages:
               $(acrLoginServer)/$(frontendImage):latest
 
 # ======================================================
-# =                   E2E QA (Cypress)                 =
+# =               E2E QA (Cypress)                     =
 # ======================================================
 - stage: E2E_QA
   displayName: "🧪 E2E Cypress contra QA"
@@ -354,15 +356,18 @@ stages:
   jobs:
     - job: CypressRunQA
       displayName: "Run Cypress E2E (QA)"
-      pool: { name: MiPool }
+      pool:
+        name: MiPool
       steps:
         - task: NodeTool@0
-          inputs: { versionSpec: '16.x' }
+          inputs:
+            versionSpec: '16.x'
           displayName: "Set Node.js 16.x"
 
         - script: |
             set -e
             cd frontend
+            echo "📦 Instalando deps para Cypress..."
             npm ci --no-audit --no-fund --legacy-peer-deps || npm install --no-audit --no-fund --legacy-peer-deps
             npx cypress verify
           displayName: "Install Cypress"
@@ -370,6 +375,7 @@ stages:
         - script: |
             set -e
             cd frontend
+            echo "🚀 Ejecutando Cypress headless contra QA..."
             rm -rf cypress/results || true
             mkdir -p cypress/results
             npx cypress run \
@@ -394,7 +400,7 @@ stages:
             artifactName: 'cypress_e2e_artifacts'
 
 # ======================================================
-# =                      DEPLOY PROD                   =
+# =                 DEPLOY PROD                        =
 # ======================================================
 - stage: DeployPROD
   displayName: "🚀 Deploy to Production (Manual Approval)"
@@ -405,16 +411,17 @@ stages:
   jobs:
     - deployment: DeployFrontendPROD
       displayName: "Deploy Frontend PROD"
-      environment: { name: 'PRODU' }
+      environment:
+        name: 'PRODU'
       strategy:
         runOnce:
           deploy:
             steps:
               - task: DownloadPipelineArtifact@2
+                displayName: 'Download Frontend PROD Artifact'
                 inputs:
                   artifact: 'drop_front_prod'
                   path: '$(Pipeline.Workspace)/drop_front_prod'
-                displayName: 'Download Frontend PROD Artifact'
               - task: AzureWebApp@1
                 displayName: "Deploy Frontend to PROD Web App"
                 inputs:
@@ -425,16 +432,17 @@ stages:
 
     - deployment: DeployBackendPROD
       displayName: "Deploy Backend PROD"
-      environment: { name: 'PRODU' }
+      environment:
+        name: 'PRODU'
       strategy:
         runOnce:
           deploy:
             steps:
               - task: DownloadPipelineArtifact@2
+                displayName: 'Download Backend Artifact'
                 inputs:
                   artifact: 'drop_back'
                   path: '$(Pipeline.Workspace)/drop_back'
-                displayName: 'Download Backend Artifact'
               - task: AzureWebApp@1
                 displayName: "Deploy Backend to PROD Web App"
                 inputs:

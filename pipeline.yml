@@ -7,51 +7,47 @@ pool:
   name: MiPool
 
 variables:
-# ====== Apps / Infra ======
-- name: azureSubscription
-  value: 'tp05-connection'
-- name: webAppFrontendQA
-  value: 'webapp-QA-2025'
-- name: webAppBackendQA
-  value: 'BACKEND-QA-2025'
-- name: REACT_APP_BACKEND_URL_QA
-  value: 'https://backend-qa-2025.azurewebsites.net'
-- name: webAppFrontendPROD
-  value: 'webapp-PRODU-2025'
-- name: webAppBackendPROD
-  value: 'BACKEND-PRODU-2025'
-- name: REACT_APP_BACKEND_URL_PROD
-  value: 'https://backend-produ-2025.azurewebsites.net'
-- name: acrLoginServer
-  value: 'ingsoft3ucc.azurecr.io'
-- name: acrConnection
-  value: 'DockerServicee'
-- name: backendImage
-  value: 'backend'
-- name: frontendImage
-  value: 'frontend'
+  # ====== Apps / Infra ======
+  - name: azureSubscription
+    value: 'tp05-connection'
+  - name: webAppFrontendQA
+    value: 'webapp-QA-2025'
+  - name: webAppBackendQA
+    value: 'BACKEND-QA-2025'
+  - name: REACT_APP_BACKEND_URL_QA
+    value: 'https://backend-qa-2025.azurewebsites.net'
+  - name: webAppFrontendPROD
+    value: 'webapp-PRODU-2025'
+  - name: webAppBackendPROD
+    value: 'BACKEND-PRODU-2025'
+  - name: REACT_APP_BACKEND_URL_PROD
+    value: 'https://backend-produ-2025.azurewebsites.net'
+  - name: acrLoginServer
+    value: 'ingsoft3ucc.azurecr.io'
+  - name: acrConnection
+    value: 'DockerServicee'
+  - name: backendImage
+    value: 'backend'
+  - name: frontendImage
+    value: 'frontend'
 
-# =========================================================
-# ▼▼ ¡¡IMPORTANTE!! ▼▼
-# Reemplaza estas keys por las keys REALES de tu proyecto monorepo en SonarCloud
-# =========================================================
-- name: sonarServiceConnection
-  value: 'SonarCloud'
-- name: sonarOrg
-  value: 'frantmateos'
-- name: sonarFrontProjectKey
-  value: 'Ing_soft3_frontend' # <-- ¡REEMPLAZA ESTO SI ES DIFERENTE!
-- name: sonarFrontProjectName
-  value: 'frontend'
-- name: sonarBackProjectKey
-  value: 'Ing_soft3_backend' # <-- ¡REEMPLAZA ESTO SI ES DIFERENTE!
-- name: sonarBackProjectName
-  value: 'backend'
-# =========================================================
-# ▲▲ FIN DE LA SECCIÓN IMPORTANTE ▲▲
-# =========================================================
+  # ====== SonarCloud ======
+  - name: sonarServiceConnection
+    value: 'SonarCloud'
+  - name: sonarOrg
+    value: 'frantmateos'
+  # Reemplazá estos project keys si tus nombres reales son otros
+  - name: sonarFrontProjectKey
+    value: 'Ing_soft3_frontend'
+  - name: sonarFrontProjectName
+    value: 'frontend'
+  - name: sonarBackProjectKey
+    value: 'Ing_soft3_backend'
+  - name: sonarBackProjectName
+    value: 'backend'
 
 stages:
+
 # ======================================================
 # =         BUILD & TEST (CI)                        =
 # ======================================================
@@ -63,313 +59,290 @@ stages:
   - job: BuildAndTestFrontQA
     displayName: "Build & Test Frontend (QA)"
     steps:
-    - task: NodeTool@0
-      inputs:
-        versionSpec: '16.x'
-      displayName: "Set Node.js 16.x"
+      - task: NodeTool@0
+        inputs:
+          versionSpec: '16.x'
+        displayName: "Set Node.js 16.x"
 
-    - task: CmdLine@2
-      displayName: "Install, Test & Build Frontend for QA"
-      inputs:
-        script: |
-          cd frontend
-          echo "Node/npm:"
-          node -v
-          npm -v
-          echo "REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL_QA}" > .env
-          echo "Usando .env:" && cat .env
-          npm config set engine-strict false
-          npm config set legacy-peer-deps true
-          npm config set audit false
-          npm config set fund false
-          echo "📦 npm ci (fallback a npm install si falla)"
-          if ! npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm; then
-            echo "npm ci falló. Fallback a npm install limpio…"
-            rm -rf node_modules package-lock.json
-            npm install --no-audit --no-fund --legacy-peer-deps --unsafe-perm
-          fi
-          echo "🧪 Tests"
-          npm test -- --watchAll=false
-          echo "🌍 Build QA (sin cortar por warnings)"
-          CI=false DISABLE_ESLINT_PLUGIN=true npm run build
-          echo "🧩 Server Node para Azure App Service"
-          cat > build/server.js <<'EOF'
-          const express = require("express");
-          const path = require("path");
-          const compression = require("compression");
-          const app = express();
-          const port = process.env.PORT || 8080;
-          app.use(compression());
-          app.use(express.static(path.join(__dirname)));
-          app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
-          app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
-          EOF
-          cat > build/package.json <<'EOF'
-          {
-            "name": "frontend-spa",
-            "version": "1.0.0",
-            "scripts": { "start": "node server.js" },
-            "dependencies": {
-              "express": "^4.18.2",
-              "compression": "^1.7.4"
+      - task: CmdLine@2
+        displayName: "Install, Test & Build Frontend for QA"
+        inputs:
+          script: |
+            set -e
+            cd frontend
+
+            echo "Node/npm:"
+            node -v
+            npm -v
+
+            echo "REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL_QA}" > .env
+            echo "Usando .env:" && cat .env
+
+            npm config set engine-strict false
+            npm config set legacy-peer-deps true
+            npm config set audit false
+            npm config set fund false
+
+            echo "📦 npm ci (fallback a npm install si falla)"
+            if ! npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm; then
+              echo "npm ci falló. Fallback a npm install limpio…"
+              rm -rf node_modules package-lock.json
+              npm install --no-audit --no-fund --legacy-peer-deps --unsafe-perm
+            fi
+
+            echo "🧪 Tests"
+            npm test -- --watchAll=false
+
+            echo "🌍 Build QA (sin cortar por warnings)"
+            CI=false DISABLE_ESLINT_PLUGIN=true npm run build
+
+            echo "🧩 Server Node para Azure App Service"
+            cat > build/server.js <<'EOF'
+            const express = require("express");
+            const path = require("path");
+            const compression = require("compression");
+            const app = express();
+            const port = process.env.PORT || 8080;
+            app.use(compression());
+            app.use(express.static(path.join(__dirname)));
+            app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
+            app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
+            EOF
+
+            cat > build/package.json <<'EOF'
+            {
+              "name": "frontend-spa",
+              "version": "1.0.0",
+              "scripts": { "start": "node server.js" },
+              "dependencies": {
+                "express": "^4.18.2",
+                "compression": "^1.7.4"
+              }
             }
-          }
-          EOF
-          cd build
-          npm install --production --no-audit --no-fund
+            EOF
 
-    # --- Coverage Frontend (Jest) ---
-    - script: |
-        cd frontend
-        echo "🧪 Coverage (lcov + cobertura)"
-        npm test -- --coverage --watchAll=false --coverageReporters=lcov --coverageReporters=cobertura
-        ls -lah coverage || true
-        head -n 10 coverage/lcov.info || true
-      displayName: "Run Jest with Coverage"
+            cd build
+            npm install --production --no-audit --no-fund
 
-    - task: PublishCodeCoverageResults@2
-      displayName: "Publish Frontend Coverage (Cobertura)"
-      inputs:
-        codeCoverageTool: 'Cobertura'
-        summaryFileLocation: 'frontend/coverage/cobertura-coverage.xml'
-        reportDirectory: 'frontend/coverage'
-        failIfCoverageEmpty: false
+      # --- Coverage Frontend (Jest) ---
+      - script: |
+          set -e
+          cd frontend
+          echo "🧪 Coverage (lcov + cobertura)"
+          npm test -- --coverage --watchAll=false --coverageReporters=lcov --coverageReporters=cobertura
+          ls -lah coverage || true
+          head -n 10 coverage/lcov.info || true
+        displayName: "Run Jest with Coverage"
 
-    - script: |
-        if [ -f frontend/coverage/lcov.info ]; then
-          cd frontend/coverage
-          echo "🧩 Normalizo rutas en lcov (si aplica)"
-          sed -i '' 's|/Users/.*/frontend/src|frontend/src|g' lcov.info || true
-          head -n 10 lcov.info || true
-        fi
-      displayName: "Fix lcov paths for SonarCloud"
+      - task: PublishCodeCoverageResults@2
+        displayName: "Publish Frontend Coverage (Cobertura)"
+        inputs:
+          codeCoverageTool: 'Cobertura'
+          summaryFileLocation: 'frontend/coverage/cobertura-coverage.xml'
+          reportDirectory: 'frontend/coverage'
+          failIfCoverageEmpty: false
 
-    # --- SonarCloud (Frontend) ---
-    - task: SonarCloudPrepare@3
-      displayName: "SonarCloud Prepare (Frontend)"
-      inputs:
-        SonarQube: '$(sonarServiceConnection)'
-        organization: '$(sonarOrg)'
-        scannerMode: 'CLI'
-        configMode: 'manual'
-        cliProjectKey: '$(sonarFrontProjectKey)'
-        cliProjectName: '$(sonarFrontProjectName)'
-        cliSources: 'frontend/src'
-        cliOptions: >
-          -Dsonar.javascript.lcov.reportPaths=$(Build.SourcesDirectory)/frontend/coverage/lcov.info
-          -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
-          -Dsonar.branch.name=$(Build.SourceBranchName)
+      # --- SonarCloud (Frontend) con baseDir correcto ---
+      - task: SonarCloudPrepare@3
+        displayName: "SonarCloud Prepare (Frontend)"
+        inputs:
+          SonarQube: '$(sonarServiceConnection)'
+          organization: '$(sonarOrg)'
+          scannerMode: 'CLI'
+          configMode: 'manual'
+          cliProjectKey: '$(sonarFrontProjectKey)'
+          cliProjectName: '$(sonarFrontProjectName)'
+          # ATENCIÓN: el análisis se hace dentro de /frontend
+          cliSources: 'src'
+          cliOptions: >
+            -Dsonar.projectBaseDir=$(Build.SourcesDirectory)/frontend
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
+            -Dsonar.tests=src
+            -Dsonar.test.inclusions=**/*.test.*,**/*.spec.*
+            -Dsonar.branch.name=$(Build.SourceBranchName)
+            -Dsonar.verbose=true
 
-    # =========================================================
-    # ▼▼ ¡¡NUEVA TAREA DE DEBUG!! ▼▼
-    # Vamos a verificar el archivo lcov.info ANTES de que falle el análisis
-    # =========================================================
-    - script: |
-        echo "🔍 [DEBUG] Verificando el archivo lcov.info ANTES del análisis"
-        LCOV_PATH="$(Build.SourcesDirectory)/frontend/coverage/lcov.info"
-        echo "Sonar espera el archivo en: $LCOV_PATH"
-        
-        if [ ! -f "$LCOV_PATH" ]; then
-          echo "❌ ¡ERROR! El archivo lcov.info NO EXISTE en esa ruta."
-          echo "Contenido de la carpeta 'coverage':"
-          ls -lah $(Build.SourcesDirectory)/frontend/coverage/
-        else
-          echo "✅ ¡ÉXITO! El archivo lcov.info SÍ EXISTE."
-          echo "--- Contenido del archivo (primeras 20 líneas) ---"
-          head -n 20 "$LCOV_PATH"
-          echo "--- Fin del contenido ---"
-          echo "Contando líneas..."
-          wc -l "$LCOV_PATH"
-        fi
-      displayName: "DEBUG: Verificar lcov.info"
-    # =========================================================
-    # ▲▲ FIN DE LA TAREA DE DEBUG ▲▲
-    # =========================================================
+      - script: |
+          echo "🔍 [DEBUG] lcov.info antes del análisis"
+          LCOV_PATH="$(Build.SourcesDirectory)/frontend/coverage/lcov.info"
+          if [ -f "$LCOV_PATH" ]; then
+            head -n 20 "$LCOV_PATH" || true
+          else
+            echo "lcov.info NO encontrado en $LCOV_PATH"
+            ls -lah "$(Build.SourcesDirectory)/frontend/coverage" || true
+          fi
+        displayName: "DEBUG: Verificar lcov.info"
 
-    - task: SonarCloudAnalyze@3
-      displayName: "SonarCloud Analyze (Frontend)"
-      inputs:
-        jdkversion: 'JAVA_HOME'
+      - task: SonarCloudAnalyze@3
+        displayName: "SonarCloud Analyze (Frontend)"
+        inputs:
+          jdkversion: 'JAVA_HOME'
 
-    - task: SonarCloudPublish@3
-      displayName: "SonarCloud Publish (Frontend)"
-      inputs:
-        pollingTimeoutSec: '300'
+      - task: SonarCloudPublish@3
+        displayName: "SonarCloud Publish (Frontend)"
+        inputs:
+          pollingTimeoutSec: '300'
 
-    - task: ArchiveFiles@2
-      displayName: "Zip Frontend QA build"
-      inputs:
-        rootFolderOrFile: 'frontend/build'
-        includeRootFolder: false
-        archiveType: 'zip'
-        archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-qa.zip'
-        replaceExistingArchive: true
+      - task: ArchiveFiles@2
+        displayName: "Zip Frontend QA build"
+        inputs:
+          rootFolderOrFile: 'frontend/build'
+          includeRootFolder: false
+          archiveType: 'zip'
+          archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-qa.zip'
+          replaceExistingArchive: true
 
-    - task: PublishPipelineArtifact@1
-      displayName: "Publish Frontend QA Artifact"
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)/frontend-qa.zip'
-        artifactName: 'drop_front_qa'
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish Frontend QA Artifact"
+        inputs:
+          targetPath: '$(Build.ArtifactStagingDirectory)/frontend-qa.zip'
+          artifactName: 'drop_front_qa'
 
   # ---------- FRONTEND PROD ----------
   - job: BuildFrontPROD
     displayName: "Build Frontend (Production)"
     steps:
-    - task: NodeTool@0
-      inputs:
-        versionSpec: '16.x'
-      displayName: "Set Node.js 16.x"
+      - task: NodeTool@0
+        inputs:
+          versionSpec: '16.x'
+        displayName: "Set Node.js 16.x"
 
-    - task: CmdLine@2
-      displayName: "Build Frontend for Production"
-      inputs:
-        script: |
-          set -e
-          cd frontend
-          echo "REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL_PROD}" > .env
-          cat .env
-          npm install
-          npm run build
-          echo "Server Node para Azure"
-          cat > build/server.js <<'EOF'
-          const express = require("express");
-          const path = require("path");
-          const compression = require("compression");
-          const app = express();
-          const port = process.env.PORT || 8080;
-          app.use(compression());
-          app.use(express.static(path.join(__dirname)));
-          app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
-          app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
-          EOF
-          cat > build/package.json <<'EOF'
-          {
-            "name": "frontend-spa",
-            "version": "1.0.0",
-            "scripts": { "start": "node server.js" },
-            "dependencies": {
-              "express": "^4.18.2",
-              "compression": "^1.7.4"
+      - task: CmdLine@2
+        displayName: "Build Frontend for Production"
+        inputs:
+          script: |
+            set -e
+            cd frontend
+            echo "REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL_PROD}" > .env
+            cat .env
+            npm install
+            npm run build
+
+            echo "Server Node para Azure"
+            cat > build/server.js <<'EOF'
+            const express = require("express");
+            const path = require("path");
+            const compression = require("compression");
+            const app = express();
+            const port = process.env.PORT || 8080;
+            app.use(compression());
+            app.use(express.static(path.join(__dirname)));
+            app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
+            app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
+            EOF
+
+            cat > build/package.json <<'EOF'
+            {
+              "name": "frontend-spa",
+              "version": "1.0.0",
+              "scripts": { "start": "node server.js" },
+              "dependencies": {
+                "express": "^4.18.2",
+                "compression": "^1.7.4"
+              }
             }
-          }
-          EOF
-          cd build
-          npm install --production
+            EOF
 
-    - task: ArchiveFiles@2
-      displayName: "Zip Frontend PROD build"
-      inputs:
-        rootFolderOrFile: 'frontend/build'
-        includeRootFolder: false
-        archiveType: 'zip'
-        archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-prod.zip'
-        replaceExistingArchive: true
+            cd build
+            npm install --production
 
-    - task: PublishPipelineArtifact@1
-      displayName: "Publish Frontend PROD Artifact"
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)/frontend-prod.zip'
-        artifactName: 'drop_front_prod'
+      - task: ArchiveFiles@2
+        displayName: "Zip Frontend PROD build"
+        inputs:
+          rootFolderOrFile: 'frontend/build'
+          includeRootFolder: false
+          archiveType: 'zip'
+          archiveFile: '$(Build.ArtifactStagingDirectory)/frontend-prod.zip'
+          replaceExistingArchive: true
+
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish Frontend PROD Artifact"
+        inputs:
+          targetPath: '$(Build.ArtifactStagingDirectory)/frontend-prod.zip'
+          artifactName: 'drop_front_prod'
 
   # ---------- BACKEND (Go) ----------
   - job: BuildAndTestBack
     displayName: "Build & Test Backend (Go)"
     steps:
-    - checkout: self
-      fetchDepth: 0
+      - checkout: self
+        fetchDepth: 0
 
-    - task: GoTool@0
-      inputs:
-        version: '1.22.1'
-      displayName: "Use Go 1.22.1"
+      - task: GoTool@0
+        inputs:
+          version: '1.22.1'
+        displayName: "Use Go 1.22.1"
 
-    # --- SonarCloud (Backend) ---
-    - task: SonarCloudPrepare@3
-      displayName: "SonarCloud Prepare (Backend)"
-      inputs:
-        SonarQube: '$(sonarServiceConnection)'
-        organization: '$(sonarOrg)'
-        scannerMode: 'CLI'
-        configMode: 'manual'
-        cliProjectKey: '$(sonarBackProjectKey)'
-        cliProjectName: '$(sonarBackProjectName)'
-        cliSources: 'Golang'
-        cliOptions: >
-          -Dsonar.exclusions=**/vendor/**,**/tests/**
-          -Dsonar.language=go
-          -Dsonar.go.coverage.reportPaths=$(Build.SourcesDirectory)/Golang/coverage.out
-          -Dsonar.branch.name=$(Build.SourceBranchName)
+      # --- SonarCloud (Backend) con baseDir correcto ---
+      - task: SonarCloudPrepare@3
+        displayName: "SonarCloud Prepare (Backend)"
+        inputs:
+          SonarQube: '$(sonarServiceConnection)'
+          organization: '$(sonarOrg)'
+          scannerMode: 'CLI'
+          configMode: 'manual'
+          cliProjectKey: '$(sonarBackProjectKey)'
+          cliProjectName: '$(sonarBackProjectName)'
+          cliSources: '.'
+          cliOptions: >
+            -Dsonar.projectBaseDir=$(Build.SourcesDirectory)/Golang
+            -Dsonar.exclusions=**/vendor/**,**/tests/**
+            -Dsonar.language=go
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.branch.name=$(Build.SourceBranchName)
+            -Dsonar.verbose=true
 
-    - task: CmdLine@2
-      displayName: "Tidy, Test (coverage) & Build Backend"
-      inputs:
-        script: |
-          cd Golang
-          echo "go mod tidy"
-          go mod tidy
-          echo "Tests con coverage"
-          go test ./... -coverprofile=coverage.out -covermode=atomic
-          echo "🔨 Build linux amd64"
-          GOOS=linux GOARCH=amd64 go build -o ../app
+      - task: CmdLine@2
+        displayName: "Tidy, Test (coverage) & Build Backend"
+        inputs:
+          script: |
+            set -e
+            cd Golang
+            echo "go mod tidy"
+            go mod tidy
 
-    # =========================================================
-    # ▼▼ ¡¡NUEVA TAREA DE DEBUG!! ▼▼
-    # Vamos a verificar el archivo coverage.out ANTES de que falle el análisis
-    # =========================================================
-    - script: |
-        echo "🔍 [DEBUG] Verificando el archivo coverage.out ANTES del análisis"
-        COVERAGE_PATH="$(Build.SourcesDirectory)/Golang/coverage.out"
-        echo "Sonar espera el archivo en: $COVERAGE_PATH"
-        
-        if [ ! -f "$COVERAGE_PATH" ]; then
-          echo "❌ ¡ERROR! El archivo coverage.out NO EXISTE en esa ruta."
-          echo "Contenido de la carpeta 'Golang':"
-          ls -lah $(Build.SourcesDirectory)/Golang/
-        else
-          echo "✅ ¡ÉXITO! El archivo coverage.out SÍ EXISTE."
-          echo "--- Contenido del archivo (primeras 20 líneas) ---"
-          head -n 20 "$COVERAGE_PATH"
-          echo "--- Fin del contenido ---"
-          echo "Contando líneas..."
-          wc -l "$COVERAGE_PATH"
-        fi
-      displayName: "DEBUG: Verificar coverage.out"
-    # =========================================================
-    # ▲▲ FIN DE LA TAREA DE DEBUG ▲▲
-    # =========================================================
+            echo "Tests con coverage"
+            go test ./... -coverprofile=coverage.out -covermode=atomic
 
-    - task: PublishCodeCoverageResults@2
-      displayName: "Publish Backend Coverage (Go)"
-      inputs:
-        codeCoverageTool: 'Cobertura'
-        summaryFileLocation: 'Golang/coverage.out'
-        reportDirectory: 'Golang'
-        failIfCoverageEmpty: false
+            echo "🔍 [DEBUG] primeras líneas de coverage.out"
+            head -n 20 coverage.out || true
 
-    - task: SonarCloudAnalyze@3
-      displayName: "Run SonarCloud Analysis (Backend)"
-      inputs:
-        jdkversion: 'JAVA_HOME'
+            echo "🔨 Build linux amd64"
+            GOOS=linux GOARCH=amd64 go build -o ../app
 
-    - task: SonarCloudPublish@3
-      displayName: "Publish SonarCloud Results (Backend)"
-      inputs:
-        pollingTimeoutSec: '300'
+      - task: PublishCodeCoverageResults@2
+        displayName: "Publish Backend Coverage (Go)"
+        inputs:
+          codeCoverageTool: 'Cobertura'
+          summaryFileLocation: 'Golang/coverage.out'
+          reportDirectory: 'Golang'
+          failIfCoverageEmpty: false
 
-    - task: ArchiveFiles@2
-      displayName: "Zip backend binary"
-      inputs:
-        rootFolderOrFile: 'app'
-        includeRootFolder: false
-        archiveType: 'zip'
-        archiveFile: '$(Build.ArtifactStagingDirectory)/backend.zip'
-        replaceExistingArchive: true
+      - task: SonarCloudAnalyze@3
+        displayName: "Run SonarCloud Analysis (Backend)"
+        inputs:
+          jdkversion: 'JAVA_HOME'
 
-    - task: PublishPipelineArtifact@1
-      displayName: "Publish Backend Artifact"
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)/backend.zip'
-        artifactName: 'drop_back'
+      - task: SonarCloudPublish@3
+        displayName: "Publish SonarCloud Results (Backend)"
+        inputs:
+          pollingTimeoutSec: '300'
+
+      - task: ArchiveFiles@2
+        displayName: "Zip backend binary"
+        inputs:
+          rootFolderOrFile: 'app'
+          includeRootFolder: false
+          archiveType: 'zip'
+          archiveFile: '$(Build.ArtifactStagingDirectory)/backend.zip'
+          replaceExistingArchive: true
+
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish Backend Artifact"
+        inputs:
+          targetPath: '$(Build.ArtifactStagingDirectory)/backend.zip'
+          artifactName: 'drop_back'
 
 # ======================================================
 # =         BUILD & PUSH DOCKER IMAGES                 =
@@ -379,32 +352,32 @@ stages:
   dependsOn: BuildAndTest
   condition: succeeded()
   jobs:
-  - job: DockerBuildPush
-    displayName: "Build & Push Backend and Frontend images"
-    steps:
-    - task: Docker@2
-      displayName: "Build & Push Backend Image"
-      inputs:
-        command: buildAndPush
-        containerRegistry: '$(acrConnection)'
-        repository: '$(backendImage)'
-        dockerfile: 'Golang/Dockerfile'
-        buildContext: '.'
-        tags: |
-          latest
-          $(Build.BuildId)
+    - job: DockerBuildPush
+      displayName: "Build & Push Backend and Frontend images"
+      steps:
+        - task: Docker@2
+          displayName: "Build & Push Backend Image"
+          inputs:
+            command: buildAndPush
+            containerRegistry: '$(acrConnection)'
+            repository: '$(backendImage)'
+            dockerfile: 'Golang/Dockerfile'
+            buildContext: '.'
+            tags: |
+              latest
+              $(Build.BuildId)
 
-    - task: Docker@2
-      displayName: "Build & Push Frontend Image"
-      inputs:
-        command: buildAndPush
-        containerRegistry: '$(acrConnection)'
-        repository: '$(frontendImage)'
-        dockerfile: 'frontend/Dockerfile'
-        buildContext: './frontend'
-        tags: |
-          latest
-          $(Build.BuildId)
+        - task: Docker@2
+          displayName: "Build & Push Frontend Image"
+          inputs:
+            command: buildAndPush
+            containerRegistry: '$(acrConnection)'
+            repository: '$(frontendImage)'
+            dockerfile: 'frontend/Dockerfile'
+            buildContext: './frontend'
+            tags: |
+              latest
+              $(Build.BuildId)
 
 # ======================================================
 # =                 DEPLOY QA                          =
@@ -413,23 +386,23 @@ stages:
   displayName: "🚀 Deploy to QA (Containers)"
   dependsOn: BuildAndPushImages
   jobs:
-  - job: DeployContainersQA
-    steps:
-    - task: AzureWebAppContainer@1
-      displayName: "Deploy Backend QA Container"
-      inputs:
-        azureSubscription: '$(azureSubscription)'
-        appName: 'docker-backend-qa'
-        containers: |
-          $(acrLoginServer)/$(backendImage):latest
+    - job: DeployContainersQA
+      steps:
+        - task: AzureWebAppContainer@1
+          displayName: "Deploy Backend QA Container"
+          inputs:
+            azureSubscription: '$(azureSubscription)'
+            appName: 'docker-backend-qa'
+            containers: |
+              $(acrLoginServer)/$(backendImage):latest
 
-    - task: AzureWebAppContainer@1
-      displayName: "Deploy Frontend QA Container"
-      inputs:
-        azureSubscription: '$(azureSubscription)'
-        appName: 'docker-frontend-qa'
-        containers: |
-          $(acrLoginServer)/$(frontendImage):latest
+        - task: AzureWebAppContainer@1
+          displayName: "Deploy Frontend QA Container"
+          inputs:
+            azureSubscription: '$(azureSubscription)'
+            appName: 'docker-frontend-qa'
+            containers: |
+              $(acrLoginServer)/$(frontendImage):latest
 
 # ======================================================
 # =               E2E QA (Cypress)                     =
@@ -439,48 +412,50 @@ stages:
   dependsOn: DeployQA
   condition: succeeded()
   jobs:
-  - job: CypressRunQA
-    displayName: "Run Cypress E2E (QA)"
-    pool:
-      name: MiPool
-    steps:
-    - task: NodeTool@0
-      inputs:
-        versionSpec: '16.x'
-      displayName: "Set Node.js 16.x"
+    - job: CypressRunQA
+      displayName: "Run Cypress E2E (QA)"
+      pool:
+        name: MiPool
+      steps:
+        - task: NodeTool@0
+          inputs:
+            versionSpec: '16.x'
+          displayName: "Set Node.js 16.x"
 
-    - script: |
-        cd frontend
-        echo "📦 Instalando deps para Cypress..."
-        npm ci --no-audit --no-fund --legacy-peer-deps || npm install --no-audit --no-fund --legacy-peer-deps
-        npx cypress verify
-      displayName: "Install Cypress"
+        - script: |
+            set -e
+            cd frontend
+            echo "📦 Instalando deps para Cypress..."
+            npm ci --no-audit --no-fund --legacy-peer-deps || npm install --no-audit --no-fund --legacy-peer-deps
+            npx cypress verify
+          displayName: "Install Cypress"
 
-    - script: |
-        cd frontend
-        echo "🚀 Ejecutando Cypress headless contra QA..."
-        rm -rf cypress/results || true
-        mkdir -p cypress/results
-        npx cypress run \
-          --spec "cypress/e2e/test-*.cy.js" \
-          --reporter junit \
-          --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true" \
-          --config baseUrl=https://$(webAppFrontendQA).azurewebsites.net,video=true,videoCompression=32
-      displayName: "Run Cypress (headless, JUnit)"
+        - script: |
+            set -e
+            cd frontend
+            echo "🚀 Ejecutando Cypress headless contra QA..."
+            rm -rf cypress/results || true
+            mkdir -p cypress/results
+            npx cypress run \
+              --spec "cypress/e2e/test-*.cy.js" \
+              --reporter junit \
+              --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true" \
+              --config baseUrl=https://$(webAppFrontendQA).azurewebsites.net,video=true,videoCompression=32
+          displayName: "Run Cypress (headless, JUnit)"
 
-    - task: PublishTestResults@2
-      displayName: "Publicar resultados Cypress (JUnit)"
-      inputs:
-        testResultsFormat: 'JUnit'
-        testResultsFiles: 'frontend/cypress/results/*.xml'
-        mergeTestResults: true
-        failTaskOnFailedTests: true
+        - task: PublishTestResults@2
+          displayName: "Publicar resultados Cypress (JUnit)"
+          inputs:
+            testResultsFormat: 'JUnit'
+            testResultsFiles: 'frontend/cypress/results/*.xml'
+            mergeTestResults: true
+            failTaskOnFailedTests: true
 
-    - task: PublishPipelineArtifact@1
-      displayName: "Adjuntar videos/screenshots Cypress"
-      inputs:
-        targetPath: 'frontend/cypress'
-        artifactName: 'cypress_e2e_artifacts'
+        - task: PublishPipelineArtifact@1
+          displayName: "Adjuntar videos/screenshots Cypress"
+          inputs:
+            targetPath: 'frontend/cypress'
+            artifactName: 'cypress_e2e_artifacts'
 
 # ======================================================
 # =                 DEPLOY PROD                        =
@@ -492,46 +467,46 @@ stages:
     - E2E_QA
   condition: succeeded()
   jobs:
-  - deployment: DeployFrontendPROD
-    displayName: "Deploy Frontend PROD"
-    environment:
-      name: 'PRODU'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: DownloadPipelineArtifact@2
-            displayName: 'Download Frontend PROD Artifact'
-            inputs:
-              artifact: 'drop_front_prod'
-              path: '$(Pipeline.Workspace)/drop_front_prod'
-          - task: AzureWebApp@1
-            displayName: "Deploy Frontend to PROD Web App"
-            inputs:
-              azureSubscription: '$(azureSubscription)'
-              appType: 'webApp'
-              appName: '$(webAppFrontendPROD)'
-              package: '$(Pipeline.Workspace)/drop_front_prod/frontend-prod.zip'
+    - deployment: DeployFrontendPROD
+      displayName: "Deploy Frontend PROD"
+      environment:
+        name: 'PRODU'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: DownloadPipelineArtifact@2
+                displayName: 'Download Frontend PROD Artifact'
+                inputs:
+                  artifact: 'drop_front_prod'
+                  path: '$(Pipeline.Workspace)/drop_front_prod'
+              - task: AzureWebApp@1
+                displayName: "Deploy Frontend to PROD Web App"
+                inputs:
+                  azureSubscription: '$(azureSubscription)'
+                  appType: 'webApp'
+                  appName: '$(webAppFrontendPROD)'
+                  package: '$(Pipeline.Workspace)/drop_front_prod/frontend-prod.zip'
 
-  - deployment: DeployBackendPROD
-    displayName: "Deploy Backend PROD"
-    environment:
-      name: 'PRODU'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: DownloadPipelineArtifact@2
-            displayName: 'Download Backend Artifact'
-            inputs:
-              artifact: 'drop_back'
-              path: '$(Pipeline.Workspace)/drop_back'
-          - task: AzureWebApp@1
-            displayName: "Deploy Backend to PROD Web App"
-            inputs:
-              azureSubscription: '$(azureSubscription)'
-              appType: 'webApp'
-              appName: '$(webAppBackendPROD)'
-              package: '$(Pipeline.Workspace)/drop_back/backend.zip'
-              appSettings: |
-                -name WEBSITE_STARTUP_FILE -value ./app
+    - deployment: DeployBackendPROD
+      displayName: "Deploy Backend PROD"
+      environment:
+        name: 'PRODU'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: DownloadPipelineArtifact@2
+                displayName: 'Download Backend Artifact'
+                inputs:
+                  artifact: 'drop_back'
+                  path: '$(Pipeline.Workspace)/drop_back'
+              - task: AzureWebApp@1
+                displayName: "Deploy Backend to PROD Web App"
+                inputs:
+                  azureSubscription: '$(azureSubscription)'
+                  appType: 'webApp'
+                  appName: '$(webAppBackendPROD)'
+                  package: '$(Pipeline.Workspace)/drop_back/backend.zip'
+                  appSettings: |
+                    -name WEBSITE_STARTUP_FILE -value ./app

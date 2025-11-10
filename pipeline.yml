@@ -420,6 +420,7 @@ stages:
             --image $(acrLoginServer)/$(backendImage):latest \
             --dns-name-label backend-instance-qa \
             --ports 8081 \
+            --os-type Linux \
             --registry-login-server $(acrLoginServer) \
             --registry-username $(acrLoginServer) \
             --registry-password $(AZURE_ACR_PASSWORD) \

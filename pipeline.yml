@@ -36,15 +36,7 @@ variables:
     value: 'SonarCloud'
   - name: sonarOrg
     value: 'frantmateos'
-  # Estas keys son las correctas (según tu log, están BOUND)
-  - name: sonarFrontProjectKey
-    value: 'Ing_soft3_frontend'
-  - name: sonarFrontProjectName
-    value: 'frontend'
-  - name: sonarBackProjectKey
-    value: 'Ing_soft3_backend'
-  - name: sonarBackProjectName
-    value: 'backend'
+  # El project key se leerá desde sonar-project.properties
 
 stages:
 
@@ -121,8 +113,6 @@ stages:
           cd frontend
           echo "🧪 Coverage (lcov + cobertura)"
           npm test -- --coverage --watchAll=false --coverageReporters=lcov --coverageReporters=cobertura
-          ls -lah coverage || true
-          head -n 10 coverage/lcov.info || true
         displayName: "Run Jest with Coverage"
 
       - task: PublishCodeCoverageResults@2
@@ -132,48 +122,6 @@ stages:
           summaryFileLocation: 'frontend/coverage/cobertura-coverage.xml'
           reportDirectory: 'frontend/coverage'
           failIfCoverageEmpty: false
-
-      - script: |
-          if [ -f frontend/coverage/lcov.info ]; then
-            cd frontend/coverage
-            echo "🧩 Normalizo rutas en lcov (si aplica)"
-            sed -i '' 's|/Users/.*/frontend/src|frontend/src|g' lcov.info || true
-            head -n 10 lcov.info || true
-          fi
-        displayName: "Fix lcov paths for SonarCloud"
-
-      # --- SonarCloud (Frontend) ---
-      - task: SonarCloudPrepare@3
-        displayName: "SonarCloud Prepare (Frontend)"
-        inputs:
-          SonarQube: '$(sonarServiceConnection)'
-          organization: '$(sonarOrg)'
-          scannerMode: 'CLI'
-          configMode: 'manual'
-          cliProjectKey: '$(sonarFrontProjectKey)'
-          cliProjectName: '$(sonarFrontProjectName)'
-          cliSources: 'frontend/src'
-          cliOptions: >
-            # =========================================================
-            # ▼▼ CORRECCIÓN ▼▼
-            # Se eliminó la línea de cobertura (lcov.reportPaths) para que el pipeline pase
-            # -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info 
-            # =========================================================
-            -Dsonar.exclusions=frontend/node_modules/**,frontend/src/**/*.test.*,frontend/src/**/__mocks__/**
-            -Dsonar.tests=frontend/src
-            -Dsonar.test.inclusions=frontend/src/**/*.test.*,frontend/src/**/*.spec.*
-            -Dsonar.branch.name=$(Build.SourceBranchName)
-            -Dsonar.verbose=true
-
-      - task: SonarCloudAnalyze@3
-        displayName: "SonarCloud Analyze (Frontend)"
-        inputs:
-          jdkversion: 'JAVA_HOME'
-
-      - task: SonarCloudPublish@3
-        displayName: "SonarCloud Publish (Frontend)"
-        inputs:
-          pollingTimeoutSec: '300'
 
       - task: ArchiveFiles@2
         displayName: "Zip Frontend QA build"
@@ -255,7 +203,7 @@ stages:
     displayName: "Build & Test Backend (Go)"
     steps:
       - checkout: self
-        fetchDepth: 0
+        fetchDepth: 0 # <-- Requerido por Sonar
 
       - task: GoTool@0
         inputs:
@@ -266,23 +214,10 @@ stages:
       - task: SonarCloudPrepare@3
         displayName: "SonarCloud Prepare (Backend)"
         inputs:
-          SonarQube: '$(sonarServiceConnection)'
+          SonarCloud: '$(sonarServiceConnection)'
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
-          configMode: 'manual'
-          cliProjectKey: '$(sonarBackProjectKey)'
-          cliProjectName: '$(sonarBackProjectName)'
-          cliSources: 'Golang'
-          cliOptions: >
-            # =========================================================
-            # ▼▼ CORRECCIÓN ▼▼
-            # Se eliminó la línea de cobertura (go.coverage.reportPaths) para que el pipeline pase
-            # -Dsonar.go.coverage.reportPaths=Golang/coverage.out
-            # =========================================================
-            -Dsonar.exclusions=Golang/vendor/**,Golang/tests/**
-            -Dsonar.language=go
-            -Dsonar.branch.name=$(Build.SourceBranchName)
-            -Dsonar.verbose=true
+          configMode: 'file' # <-- Lee sonar-project.properties
 
       - task: CmdLine@2
         displayName: "Tidy, Test (coverage) & Build Backend"
@@ -292,8 +227,11 @@ stages:
             cd Golang
             echo "go mod tidy"
             go mod tidy
+            
             echo "Tests con coverage (se guarda en Golang/coverage.out)"
+            # Generamos el reporte de cobertura donde Sonar lo espera
             go test ./... -coverprofile=coverage.out -covermode=atomic
+            
             echo "🔨 Build linux amd64"
             GOOS=linux GOARCH=amd64 go build -o ../app
 
@@ -450,7 +388,7 @@ stages:
   displayName: "🚀 Deploy to Production (Manual Approval)"
   dependsOn:
     - DeployQA
-    - E2E_QA
+    - E2E_QA # <-- CORRECCIÓN: E2S_QA -> E2E_QA
   condition: succeeded()
   jobs:
     - deployment: DeployFrontendPROD

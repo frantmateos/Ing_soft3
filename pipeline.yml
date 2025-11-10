@@ -35,14 +35,21 @@ variables:
   value: 'SonarCloud'
 - name: sonarOrg
   value: 'frantmateos'
+# =========================================================
+# ▼▼ ¡¡IMPORTANTE!! ▼▼
+# Reemplaza estas keys por las keys REALES de tu proyecto monorepo en SonarCloud
+# =========================================================
 - name: sonarFrontProjectKey
-  value: 'frantmateos_Ing_soft3_frontend' # <-- Key del Monorepo (ajusta si es necesario)
+  value: 'REEMPLAZA_CON_TU_KEY_DE_FRONTEND' 
 - name: sonarFrontProjectName
   value: 'frontend'
 - name: sonarBackProjectKey
-  value: 'frantmateos_Ing_soft3_backend' # <-- Key del Monorepo (ajusta si es necesario)
+  value: 'REEMPLAZA_CON_TU_KEY_DE_BACKEND'
 - name: sonarBackProjectName
   value: 'backend'
+# =========================================================
+# ▲▲ FIN DE LA SECCIÓN IMPORTANTE ▲▲
+# =========================================================
 
 stages:
 # ===========================
@@ -61,13 +68,13 @@ stages:
         versionSpec: '16.x'
       displayName: "Set Node.js version (16.x)"
 
-    # Tarea de verificación de Java
+    # Tarea de verificación de Java (Sintaxis Mac/Linux)
     - task: CmdLine@2
       displayName: "Verify JAVA_HOME (Frontend)"
       inputs:
         script: |
           echo "--- VERIFICANDO JAVA ---"
-          echo "Variable JAVA_HOME es: %JAVA_HOME%"
+          echo "Variable JAVA_HOME es: $JAVA_HOME"
           echo "Comando 'java -version':"
           java -version
           echo "--- FIN VERIFICACIÓN ---"
@@ -155,7 +162,8 @@ stages:
         if [ -f frontend/coverage/lcov.info ]; then
           cd frontend/coverage
           echo "🧩 Normalizando rutas absolutas -> relativas en lcov.info (si aplica)"
-          sed -i 's|/Users/.*/frontend/src|frontend/src|g' lcov.info || true
+          # Corrección para sed en macOS
+          sed -i '' 's|/Users/.*/frontend/src|frontend/src|g' lcov.info || true
           head -n 10 lcov.info || true
         fi
       displayName: "Fix lcov.info paths for SonarCloud"
@@ -274,13 +282,13 @@ stages:
         version: '1.22.1'
       displayName: "Use Go version"
       
-    # Tarea de verificación de Java
+    # Tarea de verificación de Java (Sintaxis Mac/Linux)
     - task: CmdLine@2
       displayName: "Verify JAVA_HOME (Backend)"
       inputs:
         script: |
           echo "--- VERIFICANDO JAVA ---"
-          echo "Variable JAVA_HOME es: %JAVA_HOME%"
+          echo "Variable JAVA_HOME es: $JAVA_HOME"
           echo "Comando 'java -version':"
           java -version
           echo "--- FIN VERIFICACIÓN ---"

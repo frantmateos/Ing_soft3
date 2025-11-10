@@ -134,36 +134,6 @@ stages:
           reportDirectory: 'frontend/coverage'
           failIfCoverageEmpty: false
 
-      # ==== SONARCLOUD FRONTEND (traído del ejemplo y adaptado) ====
-      - task: SonarCloudPrepare@3
-        displayName: "SonarCloud Prepare (Frontend)"
-        inputs:
-          SonarQube: '$(sonarServiceConnection)'
-          organization: '$(sonarOrg)'
-          scannerMode: 'CLI'
-          configMode: 'manual'
-          cliProjectKey: '$(sonarFrontProjectKey)'
-          cliProjectName: '$(sonarFrontProjectName)'
-          extraProperties: |
-            sonar.projectBaseDir=$(Build.SourcesDirectory)/frontend
-            sonar.sources=src
-            sonar.tests=src
-            sonar.test.inclusions=**/*.test.*,**/*.spec.*
-            sonar.javascript.lcov.reportPaths=coverage/lcov.info
-            sonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
-            sonar.branch.name=$(Build.SourceBranchName)
-            sonar.verbose=true
-
-      - task: SonarCloudAnalyze@3
-        displayName: "SonarCloud Analyze (Frontend)"
-        inputs:
-          jdkversion: 'JAVA_HOME_17_X64'   # igual que el de tu amigo
-
-      - task: SonarCloudPublish@3
-        displayName: "SonarCloud Publish (Frontend)"
-        inputs:
-          pollingTimeoutSec: '300'
-
       - task: ArchiveFiles@2
         displayName: "Zip Frontend QA build"
         inputs:

@@ -21,6 +21,15 @@ variables:
   value: 'BACKEND-PRODU-2025'
 - name: REACT_APP_BACKEND_URL_PROD
   value: 'https://backend-produ-2025.azurewebsites.net'
+- name: acrLoginServer
+  value: 'ingsoft3ucc.azurecr.io'
+- name: acrConnection
+  value: 'tp05-acr-connection'
+- name: backendImage
+  value: 'backend'
+- name: frontendImage
+  value: 'frontend'
+
 
 stages:
 # ===========================
@@ -135,7 +144,7 @@ stages:
         sed -i '' "s|/Users/franciscomateos/myagent/_work/1/s/frontend/src|frontend/src|g" lcov.info
         head -n 10 lcov.info
       displayName: "Fix lcov.info paths for SonarCloud"
-      
+
     - task: SonarCloudPrepare@3
       displayName: "SonarCloud Prepare (Frontend)"
       inputs:
@@ -332,56 +341,64 @@ stages:
         artifactName: drop_back
 
 # ===========================
-# STAGE 2: DEPLOY QA
+# STAGE 2: BUILD & PUSH IMAGES
 # ===========================
-- stage: DeployQA
-  displayName: "🚀 Deploy to QA Environment"
-  dependsOn:
-    - BuildAndTest
+- stage: BuildAndPushImages
+  displayName: "🐳 Build & Push Docker Images"
+  dependsOn: BuildAndTest
   condition: succeeded()
   jobs:
-  - deployment: DeployFrontendQA
-    displayName: "Deploy Frontend QA"
-    environment:
-      name: 'QA'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: 30f35852-3f7e-4c0c-9a88-e127b4f97211@1
-            inputs:
-              alias: current
-              artifact: drop_front_qa
-          - task: AzureWebApp@1
-            displayName: "Deploy Frontend to QA Web App"
-            inputs:
-              azureSubscription: '$(azureSubscription)'
-              appType: 'webApp'
-              appName: '$(webAppFrontendQA)'
-              package: '$(Pipeline.Workspace)/drop_front_qa/frontend-qa.zip'
+  - job: DockerBuildPush
+    displayName: "Build & Push Backend and Frontend images"
+    steps:
+    - task: Docker@2
+      displayName: "Build & Push Backend Image"
+      inputs:
+        command: buildAndPush
+        containerRegistry: '$(acrConnection)'
+        repository: '$(backendImage)'
+        dockerfile: 'Golang/Dockerfile'
+        buildContext: '.'
+        tags: |
+          latest
+          $(Build.BuildId)
 
-  - deployment: DeployBackendQA
-    displayName: "Deploy Backend QA"
-    environment:
-      name: 'QA'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: 30f35852-3f7e-4c0c-9a88-e127b4f97211@1
-            inputs:
-              alias: current
-              artifact: drop_back
-          - task: AzureWebApp@1
-            displayName: "Deploy Backend to QA Web App"
-            inputs:
-              azureSubscription: '$(azureSubscription)'
-              appType: 'webApp'
-              appName: '$(webAppBackendQA)'
-              package: '$(Pipeline.Workspace)/drop_back/backend.zip'
-              appSettings: |
-                -name WEBSITE_STARTUP_FILE -value ./app
+    - task: Docker@2
+      displayName: "Build & Push Frontend Image"
+      inputs:
+        command: buildAndPush
+        containerRegistry: '$(acrConnection)'
+        repository: '$(frontendImage)'
+        dockerfile: 'frontend/Dockerfile'
+        buildContext: './frontend'
+        tags: |
+          latest
+          $(Build.BuildId)
 
+# ===========================
+# STAGE 3: DEPLOY QA
+# ===========================
+- stage: DeployQA
+  displayName: "🚀 Deploy to QA (Containers)"
+  dependsOn: BuildAndPushImages
+  jobs:
+  - job: DeployContainersQA
+    steps:
+    - task: AzureWebAppContainer@1
+      displayName: "Deploy Backend QA Container"
+      inputs:
+        azureSubscription: '$(azureSubscription)'
+        appName: 'docker-backend-qa'
+        containers: |
+          $(acrLoginServer)/$(backendImage):latest
+
+    - task: AzureWebAppContainer@1
+      displayName: "Deploy Frontend QA Container"
+      inputs:
+        azureSubscription: '$(azureSubscription)'
+        appName: 'docker-frontend-qa'
+        containers: |
+          $(acrLoginServer)/$(frontendImage):latest
 # ===========================
 # STAGE 2.5: E2E QA (Cypress)
 # ===========================

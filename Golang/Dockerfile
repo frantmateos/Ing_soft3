@@ -22,4 +22,4 @@ COPY --from=builder /app/app /usr/local/bin/app
 WORKDIR /app
 EXPOSE 8081
 ENV PORT=8081
-CMD ["/usr/local/bin/app"]
+CMD ["./app"]

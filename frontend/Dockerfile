@@ -1,6 +1,6 @@
 # ===========================
 # Frontend multi-stage build (React + Nginx)
-# Compatible con Azure Container Instances (arm64 / amd64)
+# Compatible con Azure Container Instances
 # ===========================
 
 # ---------- 1️⃣ Build stage ----------
@@ -25,16 +25,17 @@ RUN if [ -n "$REACT_APP_BACKEND_URL" ]; then \
     test -f /app/build/index.html
 
 # ---------- 2️⃣ Nginx stage ----------
-FROM --platform=$TARGETPLATFORM nginx:stable-alpine-slim
+FROM nginx:stable-alpine
+# (sin --platform)
 
 # Copiar el contenido compilado
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Mostrar contenido y verificar configuración
+# Mostrar contenido y verificar configuración (debug útil en Azure)
 RUN ls -lah /usr/share/nginx/html && nginx -t || true
 
-# Exponer puerto
+# Exponer el puerto HTTP estándar
 EXPOSE 80
 
-# Mantener logs visibles (requerido para ACI)
+# Ejecutar Nginx en modo foreground (requerido por Azure ACI)
 CMD ["nginx", "-g", "daemon off;"]

@@ -409,13 +409,13 @@ stages:
 
           # 🔹 Borrar si ya existe
           az container delete \
-            --resource-group TPIngSw3 \
+            --resource-group TP5-2025 \
             --name backend-instance-qa \
             --yes || true
 
           # 🔹 Crear nuevo contenedor
           az container create \
-            --resource-group TPIngSw3 \
+            --resource-group TP5-2025 \
             --name backend-instance-qa \
             --image $(acrLoginServer)/$(backendImage):latest \
             --dns-name-label backend-instance-qa \

@@ -36,7 +36,7 @@ variables:
     value: 'SonarCloud'
   - name: sonarOrg
     value: 'frantmateos'
-  # Reemplazá estos project keys si tus nombres reales son otros
+  # Estas keys parecen ser las correctas según tu último log (están BOUND)
   - name: sonarFrontProjectKey
     value: 'Ing_soft3_frontend'
   - name: sonarFrontProjectName
@@ -142,7 +142,10 @@ stages:
           reportDirectory: 'frontend/coverage'
           failIfCoverageEmpty: false
 
-      # --- SonarCloud (Frontend) con baseDir correcto ---
+      # =========================================================
+      # ▼▼ CORRECCIÓN DE RUTAS (FRONTEND) ▼▼
+      # Eliminamos projectBaseDir y hacemos todas las rutas relativas a la raíz
+      # =========================================================
       - task: SonarCloudPrepare@3
         displayName: "SonarCloud Prepare (Frontend)"
         inputs:
@@ -152,16 +155,18 @@ stages:
           configMode: 'manual'
           cliProjectKey: '$(sonarFrontProjectKey)'
           cliProjectName: '$(sonarFrontProjectName)'
-          # ATENCIÓN: el análisis se hace dentro de /frontend
-          cliSources: 'src'
+          cliSources: 'frontend/src' # <-- Ruta desde la raíz
           cliOptions: >
-            -Dsonar.projectBaseDir=$(Build.SourcesDirectory)/frontend
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-            -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
-            -Dsonar.tests=src
-            -Dsonar.test.inclusions=**/*.test.*,**/*.spec.*
+            # -Dsonar.projectBaseDir se eliminó
+            -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info # <-- Ruta desde la raíz
+            -Dsonar.exclusions=frontend/node_modules/**,frontend/src/**/*.test.*,frontend/src/**/__mocks__/** # <-- Rutas desde la raíz
+            -Dsonar.tests=frontend/src # <-- Ruta desde la raíz
+            -Dsonar.test.inclusions=frontend/src/**/*.test.*,frontend/src/**/*.spec.* # <-- Rutas desde la raíz
             -Dsonar.branch.name=$(Build.SourceBranchName)
             -Dsonar.verbose=true
+      # =========================================================
+      # ▲▲ FIN DE LA CORRECCIÓN ▲▲
+      # =========================================================
 
       - script: |
           echo "🔍 [DEBUG] lcov.info antes del análisis"
@@ -274,7 +279,10 @@ stages:
           version: '1.22.1'
         displayName: "Use Go 1.22.1"
 
-      # --- SonarCloud (Backend) con baseDir correcto ---
+      # =========================================================
+      # ▼▼ CORRECCIÓN DE RUTAS (BACKEND) ▼▼
+      # Eliminamos projectBaseDir y hacemos todas las rutas relativas a la raíz
+      # =========================================================
       - task: SonarCloudPrepare@3
         displayName: "SonarCloud Prepare (Backend)"
         inputs:
@@ -284,14 +292,17 @@ stages:
           configMode: 'manual'
           cliProjectKey: '$(sonarBackProjectKey)'
           cliProjectName: '$(sonarBackProjectName)'
-          cliSources: '.'
+          cliSources: 'Golang' # <-- Ruta desde la raíz
           cliOptions: >
-            -Dsonar.projectBaseDir=$(Build.SourcesDirectory)/Golang
-            -Dsonar.exclusions=**/vendor/**,**/tests/**
+            # -Dsonar.projectBaseDir se eliminó
+            -Dsonar.exclusions=Golang/vendor/**,Golang/tests/** # <-- Rutas desde la raíz
             -Dsonar.language=go
-            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.go.coverage.reportPaths=Golang/coverage.out # <-- Ruta desde la raíz
             -Dsonar.branch.name=$(Build.SourceBranchName)
             -Dsonar.verbose=true
+      # =========================================================
+      # ▲▲ FIN DE LA CORRECCIÓN ▲▲
+      # =========================================================
 
       - task: CmdLine@2
         displayName: "Tidy, Test (coverage) & Build Backend"
@@ -302,7 +313,7 @@ stages:
             echo "go mod tidy"
             go mod tidy
 
-            echo "Tests con coverage"
+            echo "Tests con coverage (se guarda en Golang/coverage.out)"
             go test ./... -coverprofile=coverage.out -covermode=atomic
 
             echo "🔍 [DEBUG] primeras líneas de coverage.out"

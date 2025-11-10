@@ -390,6 +390,52 @@ stages:
           latest
           $(Build.BuildId)
 
+- stage: DeployToACI
+  displayName: "🚀 Deploy Backend QA to Azure Container Instance"
+  dependsOn: BuildAndPushImages
+  jobs:
+  - job: DeployBackendACI
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: AzureCLI@2
+      displayName: "Deploy Backend Container to ACI"
+      inputs:
+        azureSubscription: '$(azureSubscription)'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Deploying backend container to Azure Container Instance (ACI)..."
+
+          # 🔹 Borrar si ya existe
+          az container delete \
+            --resource-group TPIngSw3 \
+            --name backend-instance-qa \
+            --yes || true
+
+          # 🔹 Crear nuevo contenedor
+          az container create \
+            --resource-group TPIngSw3 \
+            --name backend-instance-qa \
+            --image $(acrLoginServer)/$(backendImage):latest \
+            --dns-name-label backend-instance-qa \
+            --ports 8081 \
+            --registry-login-server $(acrLoginServer) \
+            --registry-username $(acrLoginServer) \
+            --registry-password $(AZURE_ACR_PASSWORD) \
+            --environment-variables \
+              PORT=8081 \
+              ENVIRONMENT=QA \
+              DB_HOST=mysql-server-2025.mysql.database.azure.com \
+              DB_NAME=tp05_qa \
+              DB_USER=adminqa \
+              DB_PASS=Tomas1927 \
+            --cpu 1 \
+            --memory 1.5 \
+            --restart-policy Always
+
+
+
 # ===========================
 # STAGE 3: DEPLOY QA
 # ===========================

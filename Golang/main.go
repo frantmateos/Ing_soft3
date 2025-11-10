@@ -50,6 +50,8 @@ func main() {
 			"http://127.0.0.1:3000",
 			"https://webapp-qa-2025.azurewebsites.net",
 			"https://webapp-produ-2025.azurewebsites.net",
+			"https://frontend-instance-qa.brazilsouth.azurecontainer.io",
+    		"https://frontend-instance-prod.brazilsouth.azurecontainer.io",
 		}
 		for _, o := range allowedOrigins {
 			if strings.HasPrefix(origin, o) {

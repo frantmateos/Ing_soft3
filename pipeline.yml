@@ -435,6 +435,47 @@ stages:
             --memory 1.5 \
             --restart-policy Always
 
+- stage: DeployFrontendACI
+  displayName: "🚀 Deploy Frontend QA to Azure Container Instance"
+  dependsOn: BuildAndPushImages
+  jobs:
+  - job: DeployFrontendACI
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: AzureCLI@2
+      displayName: "Deploy Frontend Container to ACI"
+      inputs:
+        azureSubscription: '$(azureSubscription)'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Deploying frontend container to Azure Container Instance (ACI)..."
+
+          # 🔹 Eliminar si ya existe
+          az container delete \
+            --resource-group TP5-2025 \
+            --name frontend-instance-qa \
+            --yes || true
+
+          # 🔹 Crear nuevo contenedor para el frontend
+          az container create \
+            --resource-group TP5-2025 \
+            --name frontend-instance-qa \
+            --image $(acrLoginServer)/$(frontendImage):latest \
+            --dns-name-label frontend-instance-qa \
+            --ports 80 \
+            --os-type Linux \
+            --registry-login-server $(acrLoginServer) \
+            --registry-username IngSoft3UCC \
+            --registry-password $(AZURE_ACR_PASSWORD) \
+            --environment-variables \
+              REACT_APP_BACKEND_URL=https://backend-instance-qa.brazilsouth.azurecontainer.io:8081 \
+            --cpu 1 \
+            --memory 1.0 \
+            --restart-policy Always
+
+
 
 
 # ===========================

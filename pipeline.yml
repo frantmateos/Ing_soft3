@@ -116,7 +116,6 @@ stages:
             npm install --production --no-audit --no-fund
 
       # --- Coverage Frontend (Jest) ---
-      # Esta tarea sigue corriendo, pero Sonar NO la va a leer (por ahora)
       - script: |
           set -e
           cd frontend
@@ -158,6 +157,7 @@ stages:
             # =========================================================
             # ▼▼ CORRECCIÓN ▼▼
             # Se eliminó la línea de cobertura (lcov.reportPaths) para que el pipeline pase
+            # -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info 
             # =========================================================
             -Dsonar.exclusions=frontend/node_modules/**,frontend/src/**/*.test.*,frontend/src/**/__mocks__/**
             -Dsonar.tests=frontend/src
@@ -277,6 +277,7 @@ stages:
             # =========================================================
             # ▼▼ CORRECCIÓN ▼▼
             # Se eliminó la línea de cobertura (go.coverage.reportPaths) para que el pipeline pase
+            # -Dsonar.go.coverage.reportPaths=Golang/coverage.out
             # =========================================================
             -Dsonar.exclusions=Golang/vendor/**,Golang/tests/**
             -Dsonar.language=go

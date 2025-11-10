@@ -22,6 +22,17 @@ variables:
 - name: REACT_APP_BACKEND_URL_PROD
   value: 'https://backend-produ-2025.azurewebsites.net'
 
+  # ...
+- name: sonarFrontProjectKey
+  value: 'frantmateos_Ing_soft3_frontend' # <-- Pega la KEY REAL de SonarCloud aquí
+- name: sonarFrontProjectName
+  value: 'frontend'
+- name: sonarBackProjectKey
+  value: 'frantmateos_Ing_soft3_backend' # <-- Pega la KEY REAL de SonarCloud aquí
+- name: sonarBackProjectName
+  value: 'backend'
+# ...
+
 stages:
 # ===========================
 # STAGE 1: BUILD & TEST

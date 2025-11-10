@@ -31,20 +31,30 @@ variables:
 - name: frontendImage
   value: 'frontend'
 
+# =========================================================
+# ▼▼ ¡¡IMPORTANTE!! ▼▼
+# Reemplaza estas keys por las keys REALES de tu proyecto monorepo en SonarCloud
+# =========================================================
 - name: sonarServiceConnection
   value: 'SonarCloud'
 - name: sonarOrg
   value: 'frantmateos'
 - name: sonarFrontProjectKey
-  value: 'Ing_soft3_frontend' 
+  value: 'Ing_soft3_frontend' # <-- ¡REEMPLAZA ESTO SI ES DIFERENTE!
 - name: sonarFrontProjectName
   value: 'frontend'
 - name: sonarBackProjectKey
-  value: 'Ing_soft3_backend' 
+  value: 'Ing_soft3_backend' # <-- ¡REEMPLAZA ESTO SI ES DIFERENTE!
 - name: sonarBackProjectName
   value: 'backend'
+# =========================================================
+# ▲▲ FIN DE LA SECCIÓN IMPORTANTE ▲▲
+# =========================================================
 
 stages:
+# ======================================================
+# =         BUILD & TEST (CI)                        =
+# ======================================================
 - stage: BuildAndTest
   displayName: "Build, Test Frontend & Backend"
   jobs:
@@ -68,7 +78,6 @@ stages:
           npm -v
           echo "REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL_QA}" > .env
           echo "Usando .env:" && cat .env
-          # Config npm robusto
           npm config set engine-strict false
           npm config set legacy-peer-deps true
           npm config set audit false
@@ -130,7 +139,6 @@ stages:
         if [ -f frontend/coverage/lcov.info ]; then
           cd frontend/coverage
           echo "🧩 Normalizo rutas en lcov (si aplica)"
-          # Corrección para sed en macOS (requiere '')
           sed -i '' 's|/Users/.*/frontend/src|frontend/src|g' lcov.info || true
           head -n 10 lcov.info || true
         fi
@@ -151,6 +159,32 @@ stages:
           -Dsonar.javascript.lcov.reportPaths=$(Build.SourcesDirectory)/frontend/coverage/lcov.info
           -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
           -Dsonar.branch.name=$(Build.SourceBranchName)
+
+    # =========================================================
+    # ▼▼ ¡¡NUEVA TAREA DE DEBUG!! ▼▼
+    # Vamos a verificar el archivo lcov.info ANTES de que falle el análisis
+    # =========================================================
+    - script: |
+        echo "🔍 [DEBUG] Verificando el archivo lcov.info ANTES del análisis"
+        LCOV_PATH="$(Build.SourcesDirectory)/frontend/coverage/lcov.info"
+        echo "Sonar espera el archivo en: $LCOV_PATH"
+        
+        if [ ! -f "$LCOV_PATH" ]; then
+          echo "❌ ¡ERROR! El archivo lcov.info NO EXISTE en esa ruta."
+          echo "Contenido de la carpeta 'coverage':"
+          ls -lah $(Build.SourcesDirectory)/frontend/coverage/
+        else
+          echo "✅ ¡ÉXITO! El archivo lcov.info SÍ EXISTE."
+          echo "--- Contenido del archivo (primeras 20 líneas) ---"
+          head -n 20 "$LCOV_PATH"
+          echo "--- Fin del contenido ---"
+          echo "Contando líneas..."
+          wc -l "$LCOV_PATH"
+        fi
+      displayName: "DEBUG: Verificar lcov.info"
+    # =========================================================
+    # ▲▲ FIN DE LA TAREA DE DEBUG ▲▲
+    # =========================================================
 
     - task: SonarCloudAnalyze@3
       displayName: "SonarCloud Analyze (Frontend)"
@@ -277,6 +311,32 @@ stages:
           go test ./... -coverprofile=coverage.out -covermode=atomic
           echo "🔨 Build linux amd64"
           GOOS=linux GOARCH=amd64 go build -o ../app
+
+    # =========================================================
+    # ▼▼ ¡¡NUEVA TAREA DE DEBUG!! ▼▼
+    # Vamos a verificar el archivo coverage.out ANTES de que falle el análisis
+    # =========================================================
+    - script: |
+        echo "🔍 [DEBUG] Verificando el archivo coverage.out ANTES del análisis"
+        COVERAGE_PATH="$(Build.SourcesDirectory)/Golang/coverage.out"
+        echo "Sonar espera el archivo en: $COVERAGE_PATH"
+        
+        if [ ! -f "$COVERAGE_PATH" ]; then
+          echo "❌ ¡ERROR! El archivo coverage.out NO EXISTE en esa ruta."
+          echo "Contenido de la carpeta 'Golang':"
+          ls -lah $(Build.SourcesDirectory)/Golang/
+        else
+          echo "✅ ¡ÉXITO! El archivo coverage.out SÍ EXISTE."
+          echo "--- Contenido del archivo (primeras 20 líneas) ---"
+          head -n 20 "$COVERAGE_PATH"
+          echo "--- Fin del contenido ---"
+          echo "Contando líneas..."
+          wc -l "$COVERAGE_PATH"
+        fi
+      displayName: "DEBUG: Verificar coverage.out"
+    # =========================================================
+    # ▲▲ FIN DE LA TAREA DE DEBUG ▲▲
+    # =========================================================
 
     - task: PublishCodeCoverageResults@2
       displayName: "Publish Backend Coverage (Go)"

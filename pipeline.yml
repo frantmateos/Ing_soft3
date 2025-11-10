@@ -31,30 +31,20 @@ variables:
 - name: frontendImage
   value: 'frontend'
 
-# =========================================================
-# ▼▼ ¡¡IMPORTANTE!! ▼▼
-# Reemplaza estas keys por las keys REALES de tu proyecto monorepo en SonarCloud
-# =========================================================
 - name: sonarServiceConnection
   value: 'SonarCloud'
 - name: sonarOrg
   value: 'frantmateos'
 - name: sonarFrontProjectKey
-  value: 'TU_NUEVA_KEY_FRONTEND' # <-- ¡REEMPLAZA ESTO!
+  value: 'Ing_soft3_frontend' 
 - name: sonarFrontProjectName
   value: 'frontend'
 - name: sonarBackProjectKey
-  value: 'TU_NUEVA_KEY_BACKEND' # <-- ¡REEMPLAZA ESTO!
+  value: 'Ing_soft3_backend' 
 - name: sonarBackProjectName
   value: 'backend'
-# =========================================================
-# ▲▲ FIN DE LA SECCIÓN IMPORTANTE ▲▲
-# =========================================================
 
 stages:
-# ======================================================
-# =         BUILD & TEST (CI)                        =
-# ======================================================
 - stage: BuildAndTest
   displayName: "Build, Test Frontend & Backend"
   jobs:

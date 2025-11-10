@@ -31,23 +31,29 @@ variables:
 - name: frontendImage
   value: 'frontend'
 
-# ====== SonarCloud (usa proyectos que YA existen) ======
+# =========================================================
+# ▼▼ ¡¡IMPORTANTE!! ▼▼
+# Reemplaza estas keys por las keys REALES de tu proyecto monorepo en SonarCloud
+# =========================================================
 - name: sonarServiceConnection
   value: 'SonarCloud'
 - name: sonarOrg
   value: 'frantmateos'
 - name: sonarFrontProjectKey
-  value: 'frantmateos_frontend_qa'
+  value: 'TU_NUEVA_KEY_FRONTEND' # <-- ¡REEMPLAZA ESTO!
 - name: sonarFrontProjectName
-  value: 'frontend-qa'
+  value: 'frontend'
 - name: sonarBackProjectKey
-  value: 'frantmateos_Ing_soft3'
+  value: 'TU_NUEVA_KEY_BACKEND' # <-- ¡REEMPLAZA ESTO!
 - name: sonarBackProjectName
-  value: 'Ing_soft3'
+  value: 'backend'
+# =========================================================
+# ▲▲ FIN DE LA SECCIÓN IMPORTANTE ▲▲
+# =========================================================
 
 stages:
 # ======================================================
-# =                BUILD & TEST (CI)                   =
+# =         BUILD & TEST (CI)                        =
 # ======================================================
 - stage: BuildAndTest
   displayName: "Build, Test Frontend & Backend"
@@ -67,33 +73,26 @@ stages:
       inputs:
         script: |
           cd frontend
-
           echo "Node/npm:"
           node -v
           npm -v
-
           echo "REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL_QA}" > .env
           echo "Usando .env:" && cat .env
-
           # Config npm robusto
           npm config set engine-strict false
           npm config set legacy-peer-deps true
           npm config set audit false
           npm config set fund false
-
           echo "📦 npm ci (fallback a npm install si falla)"
           if ! npm ci --no-audit --no-fund --legacy-peer-deps --unsafe-perm; then
             echo "npm ci falló. Fallback a npm install limpio…"
             rm -rf node_modules package-lock.json
             npm install --no-audit --no-fund --legacy-peer-deps --unsafe-perm
           fi
-
           echo "🧪 Tests"
           npm test -- --watchAll=false
-
           echo "🌍 Build QA (sin cortar por warnings)"
           CI=false DISABLE_ESLINT_PLUGIN=true npm run build
-
           echo "🧩 Server Node para Azure App Service"
           cat > build/server.js <<'EOF'
           const express = require("express");
@@ -106,7 +105,6 @@ stages:
           app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
           app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
           EOF
-
           cat > build/package.json <<'EOF'
           {
             "name": "frontend-spa",
@@ -118,7 +116,6 @@ stages:
             }
           }
           EOF
-
           cd build
           npm install --production --no-audit --no-fund
 
@@ -143,7 +140,8 @@ stages:
         if [ -f frontend/coverage/lcov.info ]; then
           cd frontend/coverage
           echo "🧩 Normalizo rutas en lcov (si aplica)"
-          sed -i 's|/Users/.*/frontend/src|frontend/src|g' lcov.info || true
+          # Corrección para sed en macOS (requiere '')
+          sed -i '' 's|/Users/.*/frontend/src|frontend/src|g' lcov.info || true
           head -n 10 lcov.info || true
         fi
       displayName: "Fix lcov paths for SonarCloud"
@@ -163,13 +161,6 @@ stages:
           -Dsonar.javascript.lcov.reportPaths=$(Build.SourcesDirectory)/frontend/coverage/lcov.info
           -Dsonar.exclusions=**/node_modules/**,**/*.test.*,**/__mocks__/**
           -Dsonar.branch.name=$(Build.SourceBranchName)
-
-    # (en self-hosted ya tenés Java; si no, descomentar JavaToolInstaller)
-    # - task: JavaToolInstaller@0
-    #   inputs:
-    #     versionSpec: '17'
-    #     jdkArchitectureOption: 'x64'
-    #     jdkSourceOption: 'PreInstalled'
 
     - task: SonarCloudAnalyze@3
       displayName: "SonarCloud Analyze (Frontend)"
@@ -215,7 +206,6 @@ stages:
           cat .env
           npm install
           npm run build
-
           echo "Server Node para Azure"
           cat > build/server.js <<'EOF'
           const express = require("express");
@@ -228,7 +218,6 @@ stages:
           app.get("*", (_, res) => res.sendFile(path.join(__dirname, "index.html")));
           app.listen(port, () => console.log(`✅ Frontend running on port ${port}`));
           EOF
-
           cat > build/package.json <<'EOF'
           {
             "name": "frontend-spa",
@@ -240,7 +229,6 @@ stages:
             }
           }
           EOF
-
           cd build
           npm install --production
 
@@ -295,10 +283,8 @@ stages:
           cd Golang
           echo "go mod tidy"
           go mod tidy
-
           echo "Tests con coverage"
           go test ./... -coverprofile=coverage.out -covermode=atomic
-
           echo "🔨 Build linux amd64"
           GOOS=linux GOARCH=amd64 go build -o ../app
 
@@ -336,7 +322,7 @@ stages:
         artifactName: 'drop_back'
 
 # ======================================================
-# =            BUILD & PUSH DOCKER IMAGES              =
+# =         BUILD & PUSH DOCKER IMAGES                 =
 # ======================================================
 - stage: BuildAndPushImages
   displayName: "🐳 Build & Push Docker Images"
@@ -371,7 +357,7 @@ stages:
           $(Build.BuildId)
 
 # ======================================================
-# =                    DEPLOY QA                        =
+# =                 DEPLOY QA                          =
 # ======================================================
 - stage: DeployQA
   displayName: "🚀 Deploy to QA (Containers)"
@@ -396,7 +382,7 @@ stages:
           $(acrLoginServer)/$(frontendImage):latest
 
 # ======================================================
-# =                 E2E QA (Cypress)                    =
+# =               E2E QA (Cypress)                     =
 # ======================================================
 - stage: E2E_QA
   displayName: "🧪 E2E Cypress contra QA"
@@ -447,7 +433,7 @@ stages:
         artifactName: 'cypress_e2e_artifacts'
 
 # ======================================================
-# =                    DEPLOY PROD                      =
+# =                 DEPLOY PROD                        =
 # ======================================================
 - stage: DeployPROD
   displayName: "🚀 Deploy to Production (Manual Approval)"

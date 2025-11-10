@@ -25,7 +25,6 @@ services:
       DB_NAME: mydb
       DB_USER: user
       DB_PASS: pass
-      # point to the 'db' service so the backend connects to the MySQL container
       DB_HOST: db
       PORT: "8081"
     depends_on:

@@ -13,13 +13,16 @@ COPY Golang/ ./
 # Enable cgo if needed (sqlite3) and run tests + build
 ENV CGO_ENABLED=1
 RUN go test ./... -coverprofile=coverage.out -covermode=atomic || true
-RUN go build -o /app/app
+RUN go build -o app
 
 # Final image
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/app /usr/local/bin/app
+
 WORKDIR /app
+COPY --from=builder /src/app .
+
 EXPOSE 8081
 ENV PORT=8081
+
 CMD ["./app"]

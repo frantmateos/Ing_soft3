@@ -219,12 +219,12 @@ stages:
         displayName: "Use Go 1.22.1"
 
       - task: SonarCloudPrepare@3
-        displayName: "SonarCloud Prepare (Monorepo)"
+        displayName: "SonarCloud Prepare (Backend)"
         inputs:
-          SonarCloud: '$(sonarServiceConnection)'
+          SonarQube: '$(sonarServiceConnection)'
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
-          configMode: 'file' # <-- ¡LA CLAVE! Lee sonar-project.properties
+          configMode: 'file' 
 
       - task: CmdLine@2
         displayName: "Tidy, Test (coverage) & Build Backend"
@@ -262,12 +262,12 @@ stages:
         displayName: "DEBUG: Verificar reportes de Cobertura"
 
       - task: SonarCloudAnalyze@3
-        displayName: "Run SonarCloud Analysis (Monorepo)"
+        displayName: "Run SonarCloud Analysis (Backend)"
         inputs:
-          jdkversion: 'JAVA_HOME'
+          jdkversion: 'JAVA_HOME_17_X64'
 
       - task: SonarCloudPublish@3
-        displayName: "Publish SonarCloud Results (Monorepo)"
+        displayName: "Publish SonarCloud Results (Backend)"
         inputs:
           pollingTimeoutSec: '300'
 

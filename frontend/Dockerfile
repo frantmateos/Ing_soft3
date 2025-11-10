@@ -23,7 +23,16 @@ RUN ls -lah /app/build && test -f /app/build/index.html
 
 
 # ---------- 2️⃣ Nginx stage ----------
-FROM --platform=linux/amd64 nginx:alpine
+FROM nginx:alpine
+
+# Copiar el contenido compilado
 COPY --from=build /app/build /usr/share/nginx/html
+
+# Mostrar configuración y logs
+RUN ls -lah /usr/share/nginx/html && nginx -t || true
+
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+
+# Ejecutar nginx y mantener logs visibles (evita CrashLoopBackOff)
+CMD ["/bin/sh", "-c", "nginx -g 'daemon off;'"]
+

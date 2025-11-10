@@ -3,7 +3,7 @@
 # ===========================
 
 # ---------- 1️⃣ Build stage ----------
-FROM node:16 AS build
+FROM --platform=linux/amd64 node:16 AS build
 WORKDIR /app
 
 # Copiar e instalar dependencias
@@ -20,7 +20,7 @@ RUN if [ -n "$REACT_APP_BACKEND_URL" ]; then echo "REACT_APP_BACKEND_URL=$REACT_
 RUN npm run build
 
 # ---------- 2️⃣ Nginx stage ----------
-FROM nginx:alpine
+FROM --platform=linux/amd64 nginx:alpine
 COPY --from=build /app/build /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

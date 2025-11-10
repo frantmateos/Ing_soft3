@@ -1,39 +1,35 @@
 # ===========================
-# Backend multi-stage build for Go
+# Backend multi-stage build for Go (Linux/AMD64)
 # ===========================
 
 # ---------- 1️⃣ Builder stage ----------
 FROM golang:1.22 AS builder
 WORKDIR /src
 
-# Copy go.mod and go.sum and download deps first for caching
+# Copiar dependencias y descargarlas
 COPY Golang/go.mod Golang/go.sum ./
 RUN go mod download
 
-# Copy the rest of the backend sources
+# Copiar el resto del código
 COPY Golang/ ./
 
-# Enable CGO (needed for mysql) and build binary
-ENV CGO_ENABLED=1
-RUN go test ./... -coverprofile=coverage.out -covermode=atomic || true
-RUN go build -o /app/app .
+# Compilar el binario para Linux AMD64 (CGO desactivado por compatibilidad)
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+RUN go build -o /app .
 
 # ---------- 2️⃣ Final runtime stage ----------
 FROM debian:bookworm-slim
 
-# Install CA certificates to allow TLS MySQL connections
+# Instalar certificados SSL (para conectar con MySQL TLS)
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Working directory for the app
 WORKDIR /app
 
-# Copy only the built binary
-COPY --from=builder /app/app .
+# Copiar el binario desde el builder
+COPY --from=builder /app .
 
-# Expose the correct port
+# Exponer el puerto de la app
 EXPOSE 8081
 
-#ENV PORT=8081
-
-# Run the compiled app
+# Comando de inicio
 CMD ["./app"]

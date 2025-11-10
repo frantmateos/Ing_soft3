@@ -24,7 +24,7 @@ variables:
 - name: acrLoginServer
   value: 'ingsoft3ucc.azurecr.io'
 - name: acrConnection
-  value: 'tp05-acr-connection'
+  value: 'DockerServicee'
 - name: backendImage
   value: 'backend'
 - name: frontendImage

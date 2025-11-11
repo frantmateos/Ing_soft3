@@ -387,11 +387,11 @@ stages:
         dockerfile: 'frontend/Dockerfile'
         buildContext: './frontend'
         buildArguments: |
-          REACT_APP_BACKEND_URL=https://backend-instance-qa.brazilsouth.azurecontainer.io:8081
+          REACT_APP_BACKEND_URL=http://backend-instance-qa.brazilsouth.azurecontainer.io:8081
         tags: |
           latest
           $(Build.BuildId)
-        arguments: '--no-cache'
+        arguments: '--platform linux/amd64 --no-cache'
 
 - stage: DeployToACI
   displayName: "🚀 Deploy Backend QA to Azure Container Instance"
@@ -473,7 +473,8 @@ stages:
             --registry-username IngSoft3UCC \
             --registry-password $(AZURE_ACR_PASSWORD) \
             --environment-variables \
-              REACT_APP_BACKEND_URL=https://backend-instance-qa.brazilsouth.azurecontainer.io:8081 \
+              REACT_APP_BACKEND_URL=http://backend-instance-qa.brazilsouth.azurecontainer.io:8081 \
+            --command-line "nginx -g 'daemon off;'" \
             --cpu 1 \
             --memory 1.0 \
             --restart-policy Always

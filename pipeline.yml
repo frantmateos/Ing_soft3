@@ -224,7 +224,11 @@ stages:
           SonarQube: '$(sonarServiceConnection)'
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
-          configMode: 'file' 
+          configMode: 'file'              # lee sonar-project.properties
+          # >>> Pasamos el baseDir correcto desde aquí <<<
+          extraProperties: |
+            sonar.projectBaseDir=$(Build.SourcesDirectory)/Golang
+            sonar.scanner.dumpToFile=$(Build.SourcesDirectory)/scanner-props-back.txt
 
       - task: CmdLine@2
         displayName: "Tidy, Test (coverage) & Build Backend"

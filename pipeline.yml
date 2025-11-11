@@ -280,13 +280,10 @@ stages:
           targetPath: '$(Build.ArtifactStagingDirectory)/backend.zip'
           artifactName: 'drop_back'
 
-# ======================================================
-# =         BUILD & PUSH DOCKER IMAGES                 =
-# ======================================================
 # ===========================
 # STAGE 2: BUILD & PUSH IMAGES
 # ===========================
-- ⁠stage: BuildAndPushImages
+- stage: BuildAndPushImages
   displayName: "🐳 Build & Push Docker Images"
   dependsOn: BuildAndTest
   condition: succeeded()
@@ -339,7 +336,7 @@ stages:
           $(Build.BuildId)
         arguments: '--platform linux/amd64 --build-arg REACT_APP_BACKEND_URL=http://backend-instance-qa.brazilsouth.azurecontainer.io:8081 --no-cache'
 
-- ⁠stage: DeployToACI
+- stage: DeployToACI
   displayName: "🚀 Deploy Backend QA to Azure Container Instance"
   dependsOn: BuildAndPushImages
   jobs:
@@ -384,7 +381,10 @@ stages:
             --memory 1.5 \
             --restart-policy Always
 
-•⁠  ⁠stage: DeployFrontendACI
+### Dockeerrr
+
+
+- stage: DeployFrontendACI
   displayName: "🚀 Deploy Frontend QA to Azure Container Instance"
   dependsOn: BuildAndPushImages
   jobs:
@@ -422,6 +422,8 @@ stages:
             --cpu 1 \
             --memory 1.0 \
             --restart-policy Always
+
+
 
 # ======================================================
 # =                 DEPLOY QA                          =

@@ -253,17 +253,15 @@ stages:
           ArtifactName: 'back_coverage_html'
         condition: always()
 
-      # Sonar: usa coverage.out indicado arriba (no necesita Cobertura XML)
-      - task: SonarCloudAnalyze@3 # <-- ACTUALIZADO A @3
-        name: SonarAnalyzeTask    # <-- ¡¡AÑADIDO!! Este es el ID de la tarea
+      - task: SonarCloudAnalyze@3 
+        name: SonarAnalyzeTask    
         displayName: "Run SonarCloud Analysis (Backend)"
 
-      - task: SonarCloudPublish@3 # <-- ACTUALIZADO A @3
+      - task: SonarCloudPublish@3
         displayName: "Publish SonarCloud Results (Backend)"
-        condition: succeeded('SonarAnalyzeTask') # <-- ¡¡CORREGIDO!! Ahora se refiere al 'name'
+        condition: "succeeded('SonarAnalyzeTask')"
         inputs:
           pollingTimeoutSec: '300'
-          # Se quitó el input 'SonarCloud:' inválido de aquí
 
       - task: ArchiveFiles@2
         displayName: "Zip backend binary"

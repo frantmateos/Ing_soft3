@@ -32,11 +32,10 @@ variables:
     value: 'frontend'
 
   # ====== SonarCloud ======
-variables:
   - name: sonarServiceConnection
-    value: 'SonarCloud'  # <-- 'name' y 'value' están al mismo nivel
+    value: 'SonarCloud'
   - name: sonarOrg
-    value: 'frantmateos' # <-- 'name' y 'value' están al mismo nivel
+    value: 'frantmateos'
 
 stages:
 

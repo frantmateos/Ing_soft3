@@ -200,7 +200,7 @@ stages:
     dependsOn: BuildAndTestFrontQA
     steps:
       - checkout: self
-        fetchDepth: 0 # <-- Esta línea ahora SÍ será leída
+        fetchDepth: 0 # <-- Esto ahora SÍ funcionará
 
       - task: GoTool@0
         inputs:
@@ -208,10 +208,10 @@ stages:
         displayName: "Use Go 1.22.1"
 
       # PREPARE SonarCloud 100% manual (sin sonar-project.properties)
-      - task: SonarCloudPrepare@3
+      - task: SonarCloudPrepare@3 # <-- ACTUALIZADO A @3
         displayName: "SonarCloud Prepare (Backend)"
         inputs:
-          SonarCloud: '$(sonarServiceConnection)' 
+          SonarCloud: '$(sonarServiceConnection)'
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
           configMode: 'manual'
@@ -254,16 +254,16 @@ stages:
         condition: always()
 
       # Sonar: usa coverage.out indicado arriba (no necesita Cobertura XML)
-      - task: SonarCloudAnalyze@3
-        name: Run_SonarCloud_Analysis_Backend
+      - task: SonarCloudAnalyze@3 # <-- ACTUALIZADO A @3
+        name: SonarAnalyzeTask    # <-- ¡¡AÑADIDO!! Este es el ID de la tarea
         displayName: "Run SonarCloud Analysis (Backend)"
 
-      - task: SonarCloudPublish@3
+      - task: SonarCloudPublish@3 # <-- ACTUALIZADO A @3
         displayName: "Publish SonarCloud Results (Backend)"
-        condition: succeeded('Run_SonarCloud_Analysis_Backend')
+        condition: succeeded('SonarAnalyzeTask') # <-- ¡¡CORREGIDO!! Ahora se refiere al 'name'
         inputs:
-          # --- ¡CORREGIDO! SE ELIMINÓ EL INPUT 'SonarCloud:' INVÁLIDO ---
           pollingTimeoutSec: '300'
+          # Se quitó el input 'SonarCloud:' inválido de aquí
 
       - task: ArchiveFiles@2
         displayName: "Zip backend binary"
@@ -306,7 +306,7 @@ stages:
         - task: Docker@2
           displayName: "Build & Push Frontend Image"
           inputs:
-            command: buildAndPush # <-- ¡CORREGIDO!
+            command: buildAndPush # <-- Corregido el error 'buildAndPus'
             containerRegistry: '$(acrConnection)'
             repository: '$(frontendImage)'
             dockerfile: 'frontend/Dockerfile'
@@ -391,7 +391,7 @@ stages:
           displayName: "Adjuntar videos/screenshots Cypress"
           inputs:
             targetPath: 'frontend/cypress'
-            artifactName: 'cypress_e2o_artifacts' # Note: 'e2o' might be a typo for 'e2e'
+            artifactName: 'cypress_e2e_artifacts'
 
 # ======================================================
 # =                 DEPLOY PROD                        =

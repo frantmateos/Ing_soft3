@@ -228,10 +228,10 @@ stages:
           cliProjectKey: 'Ing_soft3_backend'
           cliProjectName: 'Backend (Go)'
           cliSources: 'Golang'
-        extraProperties: |
-          sonar.exclusions=/vendor/
-          sonar.go.coverage.reportPaths=Golang/coverage.out
-          sonar.scanner.dumpToFile=$(Build.SourcesDirectory)/scanner-props-back.txt
+          extraProperties: |
+            sonar.exclusions=**/vendor/**
+            sonar.go.coverage.reportPaths=Golang/coverage.out
+            sonar.scanner.dumpToFile=$(Build.SourcesDirectory)/scanner-props-back.txt
 
       - task: CmdLine@2
         displayName: "Tidy, Test (coverage) & Build Backend"

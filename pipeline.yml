@@ -475,7 +475,6 @@ stages:
             --registry-password $(AZURE_ACR_PASSWORD) \
             --environment-variables \
               REACT_APP_BACKEND_URL=http://backend-instance-qa.brazilsouth.azurecontainer.io:8081 \
-            --command-line '/bin/sh -c "nginx -g \"daemon off;\""' \
             --cpu 1 \
             --memory 1.0 \
             --restart-policy Always

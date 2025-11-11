@@ -270,8 +270,6 @@ stages:
 
       - task: SonarCloudAnalyze@3
         displayName: "Run SonarCloud Analysis (Backend)"
-        inputs:
-          jdkversion: 'JAVA_HOME_17_X64'
 
       - task: SonarCloudPublish@3
         displayName: "Publish SonarCloud Results (Backend)"
@@ -290,7 +288,7 @@ stages:
       - task: PublishPipelineArtifact@1
         displayName: "Publish Backend Artifact"
         inputs:
-          targetPath: '$(Build.SourcesDirectory)/scanner-props-back.txt'
+          targetPath: '$(Build.ArtifactStagingDirectory)/backend.zip' 
           artifactName: 'drop_back'
 
 # ======================================================

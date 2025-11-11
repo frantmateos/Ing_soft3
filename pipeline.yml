@@ -211,7 +211,7 @@ stages:
       - task: SonarCloudPrepare@3
         displayName: "SonarCloud Prepare (Backend)"
         inputs:
-          SonarQube: '$(sonarServiceConnection)'
+          SonarCloud: '$(sonarServiceConnection)'
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
           configMode: 'manual'
@@ -258,8 +258,8 @@ stages:
         displayName: "Run SonarCloud Analysis (Backend)"
 
       - task: SonarCloudPublish@3
-        displayName: "Publish SonarCloud Results (Backend)"
         inputs:
+          SonarCloud: '$(sonarServiceConnection)'
           pollingTimeoutSec: '300'
 
       - task: ArchiveFiles@2

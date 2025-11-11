@@ -484,8 +484,8 @@ stages:
 - stage: E2E_QA
   displayName: "🧪 E2E Cypress contra QA"
   dependsOn:
-    - DeployToACI
-  condition: succeeded()
+    - BuildAndTest
+  condition: succeeded('BuildAndTest')
   jobs:
   - job: CypressRunQA
     displayName: "Run Cypress E2E (QA)"

@@ -467,6 +467,7 @@ stages:
             --name frontend-instance-qa \
             --image $(acrLoginServer)/$(frontendImage):latest \
             --dns-name-label frontend-instance-qa \
+            --ip-address Public \
             --ports 80 \
             --os-type Linux \
             --registry-login-server $(acrLoginServer) \

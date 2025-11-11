@@ -259,7 +259,6 @@ stages:
 
       - task: SonarCloudPublish@3
         inputs:
-          SonarCloud: '$(sonarServiceConnection)'
           pollingTimeoutSec: '300'
 
       - task: ArchiveFiles@2
@@ -303,7 +302,7 @@ stages:
         - task: Docker@2
           displayName: "Build & Push Frontend Image"
           inputs:
-            command: buildAndPus
+            command: buildAndPush
             containerRegistry: '$(acrConnection)'
             repository: '$(frontendImage)'
             dockerfile: 'frontend/Dockerfile'

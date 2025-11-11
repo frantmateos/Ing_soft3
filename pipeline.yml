@@ -283,37 +283,145 @@ stages:
 # ======================================================
 # =         BUILD & PUSH DOCKER IMAGES                 =
 # ======================================================
-- stage: BuildAndPushImages
+# ===========================
+# STAGE 2: BUILD & PUSH IMAGES
+# ===========================
+•⁠  ⁠stage: BuildAndPushImages
   displayName: "🐳 Build & Push Docker Images"
   dependsOn: BuildAndTest
   condition: succeeded()
   jobs:
-    - job: DockerBuildPush
-      displayName: "Build & Push Backend and Frontend images"
-      steps:
-        - task: Docker@2
-          displayName: "Build & Push Backend Image"
-          inputs:
-            command: buildAndPush
-            containerRegistry: '$(acrConnection)'
-            repository: '$(backendImage)'
-            dockerfile: 'Golang/Dockerfile'
-            buildContext: '.'
-            tags: |
-              latest
-              $(Build.BuildId)
+  - job: DockerBuildPush
+    displayName: "Build & Push Backend and Frontend images"
+    steps:
+    - script: |
+        echo "🧩 DEBUG: Contenido del contexto Docker antes del build"
+        ls -R Golang | head -n 50
+        echo "Dockerfile:"
+        cat Golang/Dockerfile | head -n 30
+      displayName: "Verificar contenido Docker antes del build"
 
-        - task: Docker@2
-          displayName: "Build & Push Frontend Image"
-          inputs:
-            command: buildAndPush # <-- Corregido el error 'buildAndPus'
-            containerRegistry: '$(acrConnection)'
-            repository: '$(frontendImage)'
-            dockerfile: 'frontend/Dockerfile'
-            buildContext: './frontend'
-            tags: |
-              latest
-              $(Build.BuildId)
+    - task: Docker@2
+      displayName: "Build & Push Backend Image"
+      inputs:
+        command: buildAndPush
+        containerRegistry: '$(acrConnection)'
+        repository: '$(backendImage)'
+        dockerfile: 'Golang/Dockerfile'
+        buildContext: '.'
+        tags: |
+          latest
+          $(Build.BuildId)
+        arguments: '--no-cache'
+
+    
+    - script: |
+        echo "✅ Imagenes en local después del build:"
+        docker images | grep backend || echo "No se encontró imagen backend"
+      displayName: "Listar imágenes locales (post-build)"
+
+    - script: |
+        echo "🔧 Forzando Docker Buildx para amd64..."
+        docker buildx create --use --name mybuilder || true
+        docker buildx inspect mybuilder --bootstrap
+      displayName: "Enable Docker Buildx (Linux/amd64)"
+
+    - task: Docker@2
+      displayName: "Build & Push Frontend Image"
+      inputs:
+        command: buildAndPush
+        containerRegistry: '$(acrConnection)'
+        repository: '$(frontendImage)'
+        dockerfile: 'frontend/Dockerfile'
+        buildContext: './frontend'
+        tags: |
+          latest
+          $(Build.BuildId)
+        arguments: '--platform linux/amd64 --build-arg REACT_APP_BACKEND_URL=http://backend-instance-qa.brazilsouth.azurecontainer.io:8081 --no-cache'
+
+•⁠  ⁠stage: DeployToACI
+  displayName: "🚀 Deploy Backend QA to Azure Container Instance"
+  dependsOn: BuildAndPushImages
+  jobs:
+  - job: DeployBackendACI
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: AzureCLI@2
+      displayName: "Deploy Backend Container to ACI"
+      inputs:
+        azureSubscription: '$(azureSubscription)'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Deploying backend container to Azure Container Instance (ACI)..."
+
+          # 🔹 Borrar si ya existe
+          az container delete \
+            --resource-group TP5-2025 \
+            --name backend-instance-qa \
+            --yes || true
+
+          # 🔹 Crear nuevo contenedor
+          az container create \
+            --resource-group TP5-2025 \
+            --name backend-instance-qa \
+            --image $(acrLoginServer)/$(backendImage):latest \
+            --dns-name-label backend-instance-qa \
+            --ports 8081 \
+            --os-type Linux \
+            --registry-login-server $(acrLoginServer) \
+            --registry-username IngSoft3UCC \
+            --registry-password $(AZURE_ACR_PASSWORD) \
+            --environment-variables \
+              PORT=8081 \
+              ENVIRONMENT=QA \
+              DB_HOST=mysql-server-2025.mysql.database.azure.com \
+              DB_NAME=tp05_qa \
+              DB_USER=adminqa \
+              DB_PASS=Tomas1927 \
+            --cpu 1 \
+            --memory 1.5 \
+            --restart-policy Always
+
+•⁠  ⁠stage: DeployFrontendACI
+  displayName: "🚀 Deploy Frontend QA to Azure Container Instance"
+  dependsOn: BuildAndPushImages
+  jobs:
+  - job: DeployFrontendACI
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: AzureCLI@2
+      displayName: "Deploy Frontend Container to ACI"
+      inputs:
+        azureSubscription: '$(azureSubscription)'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Deploying frontend container to Azure Container Instance (ACI)..."
+
+          # 🔹 Eliminar si ya existe
+          az container delete \
+            --resource-group TP5-2025 \
+            --name frontend-instance-qa \
+            --yes || true
+
+          # 🔹 Crear nuevo contenedor para el frontend
+          az container create \
+            --resource-group TP5-2025 \
+            --name frontend-instance-qa \
+            --image $(acrLoginServer)/$(frontendImage):latest \
+            --dns-name-label frontend-instance-qa \
+            --ip-address Public \
+            --ports 80 \
+            --os-type Linux \
+            --registry-login-server $(acrLoginServer) \
+            --registry-username IngSoft3UCC \
+            --registry-password $(AZURE_ACR_PASSWORD) \
+            --cpu 1 \
+            --memory 1.0 \
+            --restart-policy Always
 
 # ======================================================
 # =                 DEPLOY QA                          =

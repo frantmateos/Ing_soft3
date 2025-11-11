@@ -32,10 +32,11 @@ variables:
     value: 'frontend'
 
   # ====== SonarCloud ======
+variables:
   - name: sonarServiceConnection
-    value: 'SonarCloud'
+    value: 'SonarCloud'  # <-- 'name' y 'value' están al mismo nivel
   - name: sonarOrg
-    value: 'frantmateos'
+    value: 'frantmateos' # <-- 'name' y 'value' están al mismo nivel
 
 stages:
 
@@ -221,7 +222,7 @@ stages:
       - task: SonarCloudPrepare@1
         displayName: "SonarCloud Prepare (Backend)"
         inputs:
-          SonarQube: '$(sonarServiceConnection)'
+          SonarCloud: '$(sonarServiceConnection)'
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
           configMode: 'manual'

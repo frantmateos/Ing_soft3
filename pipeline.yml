@@ -345,7 +345,7 @@ stages:
 # ===========================
 - stage: BuildAndPushImages
   displayName: "🐳 Build & Push Docker Images"
-  dependsOn: BuildAndTest
+  dependsOn: E2E_QA
   condition: succeeded()
   jobs:
   - job: DockerBuildPush

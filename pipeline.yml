@@ -208,10 +208,10 @@ stages:
         displayName: "Use Go 1.22.1"
 
       # PREPARE SonarCloud 100% manual (sin sonar-project.properties)
-      - task: SonarCloudPrepare@2
+      - task: SonarCloudPrepare@3
         displayName: "SonarCloud Prepare (Backend)"
         inputs:
-          SonarCloud: '$(sonarServiceConnection)' # <-- Este sí es correcto
+          SonarCloud: '$(sonarServiceConnection)' 
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
           configMode: 'manual'
@@ -254,10 +254,11 @@ stages:
         condition: always()
 
       # Sonar: usa coverage.out indicado arriba (no necesita Cobertura XML)
-      - task: SonarCloudAnalyze@2
+      - task: SonarCloudAnalyze@3
+        name: Run_SonarCloud_Analysis_Backend
         displayName: "Run SonarCloud Analysis (Backend)"
 
-      - task: SonarCloudPublish@2
+      - task: SonarCloudPublish@3
         displayName: "Publish SonarCloud Results (Backend)"
         condition: succeeded('Run_SonarCloud_Analysis_Backend')
         inputs:

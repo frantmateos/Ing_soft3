@@ -218,7 +218,7 @@ stages:
           version: '1.22.1'
         displayName: "Use Go 1.22.1"
 
-      - task: SonarCloudPrepare@3
+      - task: SonarCloudPrepare@1
         displayName: "SonarCloud Prepare (Backend)"
         inputs:
           SonarQube: '$(sonarServiceConnection)'
@@ -268,10 +268,10 @@ stages:
           head -n 5 $(Build.SourcesDirectory)/Golang/coverage.out
         displayName: "DEBUG: Verificar reportes de Cobertura"
 
-      - task: SonarCloudAnalyze@3
+      - task: SonarCloudAnalyze@1
         displayName: "Run SonarCloud Analysis (Backend)"
 
-      - task: SonarCloudPublish@3
+      - task: SonarCloudPublish@1
         displayName: "Publish SonarCloud Results (Backend)"
         inputs:
           pollingTimeoutSec: '300'

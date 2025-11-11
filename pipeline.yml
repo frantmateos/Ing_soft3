@@ -224,11 +224,14 @@ stages:
           SonarQube: '$(sonarServiceConnection)'
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
-          configMode: 'file'              # lee sonar-project.properties
-          # >>> Pasamos el baseDir correcto desde aquí <<<
-          extraProperties: |
-            sonar.projectBaseDir=$(Build.SourcesDirectory)/Golang
-            sonar.scanner.dumpToFile=$(Build.SourcesDirectory)/scanner-props-back.txt
+          configMode: 'manual'
+          cliProjectKey: 'Ing_soft3_backend'
+          cliProjectName: 'Backend (Go)'
+          cliSources: 'Golang'
+        extraProperties: |
+          sonar.exclusions=/vendor/
+          sonar.go.coverage.reportPaths=Golang/coverage.out
+          sonar.scanner.dumpToFile=$(Build.SourcesDirectory)/scanner-props-back.txt
 
       - task: CmdLine@2
         displayName: "Tidy, Test (coverage) & Build Backend"
@@ -287,7 +290,7 @@ stages:
       - task: PublishPipelineArtifact@1
         displayName: "Publish Backend Artifact"
         inputs:
-          targetPath: '$(Build.ArtifactStagingDirectory)/backend.zip'
+          targetPath: '$(Build.SourcesDirectory)/scanner-props-back.txt'
           artifactName: 'drop_back'
 
 # ======================================================

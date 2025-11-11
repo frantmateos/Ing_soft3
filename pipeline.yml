@@ -195,84 +195,69 @@ stages:
           artifactName: 'drop_front_prod'
 
   # ---------- BACKEND (Go) + SONARQUBE ----------
-  - job: BuildAndTestBack
-    displayName: "Build & Test Backend (Go) + SonarQube"
-    dependsOn: BuildAndTestFrontQA # <-- Se asegura que la cobertura del Front ya exista
+   - job: BuildAndTestBack
+    displayName: "Build & Test Backend (Go) + SonarCloud"
+    dependsOn: BuildAndTestFrontQA
     steps:
       - checkout: self
-        fetchDepth: 0 # <-- Requerido por Sonar
-
-      # =========================================================
-      # ▼▼ TAREA CLAVE #2: DESCARGAR LA COBERTURA DEL FRONTEND ▼▼
-      # =========================================================
-      - task: DownloadPipelineArtifact@2
-        displayName: 'Download Frontend Coverage Artifact (lcov)'
-        inputs:
-          artifact: 'frontend_coverage_lcov'
-          # La descargamos en la ruta exacta donde Sonar la va a buscar
-          path: '$(Build.SourcesDirectory)/frontend/coverage' 
+        fetchDepth: 0
 
       - task: GoTool@0
         inputs:
           version: '1.22.1'
         displayName: "Use Go 1.22.1"
 
-      - task: SonarCloudPrepare@2
+      # PREPARE SonarCloud 100% manual (sin sonar-project.properties)
+      - task: SonarCloudPrepare@3
         displayName: "SonarCloud Prepare (Backend)"
         inputs:
-          SonarCloud: '$(sonarServiceConnection)'
+          SonarQube: '$(sonarServiceConnection)'
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
           configMode: 'manual'
           cliProjectKey: 'Ing_soft3_backend'
           cliProjectName: 'Backend (Go)'
-          cliSources: 'Golang'
           extraProperties: |
-            sonar.exclusions=**/vendor/**
-            sonar.go.coverage.reportPaths=Golang/coverage.out
+            sonar.projectBaseDir=$(Build.SourcesDirectory)/Golang
+            sonar.sources=.
+            sonar.exclusions=**/vendor/**,**/tests/**
+            sonar.go.coverage.reportPaths=coverage.out
+            sonar.branch.name=$(Build.SourceBranchName)
+            sonar.verbose=true
             sonar.scanner.dumpToFile=$(Build.SourcesDirectory)/scanner-props-back.txt
 
       - task: CmdLine@2
-        displayName: "Tidy, Test (coverage) & Build Backend"
+        displayName: "go tidy, tests (coverage) & build"
         inputs:
           script: |
             set -e
-            export GOPROXY=https://proxy.golang.org,direct
-            export GOPRIVATE=
             cd Golang
             echo "go mod tidy"
             go mod tidy
-            echo "Tests con coverage (se guarda en Golang/coverage.out)"
+
+            echo "▶ go test con cobertura → coverage.out"
             go test ./... -coverprofile=coverage.out -covermode=atomic
-            echo "Instalando gocov-xml..."
-            go install github.com/boumenot/gocov-xml@latest
-            echo "Convirtiendo coverage.out a cobertura.xml..."
-            ~/go/bin/gocov-xml < coverage.out > cobertura.xml
-            echo "🔨 Build linux amd64"
+
+            echo "▶ Genero coverage.html para verlo en el pipeline"
+            go tool cover -html=coverage.out -o coverage.html
+            go tool cover -func=coverage.out > coverage.txt
+
+            echo "▶ Build linux amd64"
             GOOS=linux GOARCH=amd64 go build -o ../app
 
-      - task: PublishCodeCoverageResults@2
-        displayName: "Publish Backend Coverage (Go)"
+      # (Opcional) Publicar cobertura HTML como artefacto navegable
+      - task: PublishBuildArtifacts@1
+        displayName: "Publicar coverage HTML (backend)"
         inputs:
-          codeCoverageTool: 'Cobertura'
-          summaryFileLocation: 'Golang/cobertura.xml' 
-          failIfCoverageEmpty: false
-      
-      - script: |
-          echo "🔍 [DEBUG] Verificando AMBOS reportes de cobertura"
-          echo "--- Revisando reporte de FRONTEND ---"
-          ls -lah $(Build.SourcesDirectory)/frontend/coverage/lcov.info
-          head -n 5 $(Build.SourcesDirectory)/frontend/coverage/lcov.info
-          
-          echo "--- Revisando reporte de BACKEND ---"
-          ls -lah $(Build.SourcesDirectory)/Golang/coverage.out
-          head -n 5 $(Build.SourcesDirectory)/Golang/coverage.out
-        displayName: "DEBUG: Verificar reportes de Cobertura"
+          PathtoPublish: 'Golang/coverage.html'
+          ArtifactName: 'back_coverage_html'
+        condition: always()
 
-      - task: SonarCloudAnalyze@2
+      # Sonar: usa coverage.out indicado arriba (no necesita Cobertura XML)
+      - task: SonarCloudAnalyze@3
         displayName: "Run SonarCloud Analysis (Backend)"
 
-      - task: SonarCloudPublish@2
+      - task: SonarCloudPublish@3
         displayName: "Publish SonarCloud Results (Backend)"
         inputs:
           pollingTimeoutSec: '300'
@@ -289,7 +274,7 @@ stages:
       - task: PublishPipelineArtifact@1
         displayName: "Publish Backend Artifact"
         inputs:
-          targetPath: '$(Build.ArtifactStagingDirectory)/backend.zip' 
+          targetPath: '$(Build.ArtifactStagingDirectory)/backend.zip'
           artifactName: 'drop_back'
 
 # ======================================================

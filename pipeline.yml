@@ -286,7 +286,7 @@ stages:
 # ===========================
 # STAGE 2: BUILD & PUSH IMAGES
 # ===========================
-•⁠  ⁠stage: BuildAndPushImages
+- ⁠stage: BuildAndPushImages
   displayName: "🐳 Build & Push Docker Images"
   dependsOn: BuildAndTest
   condition: succeeded()
@@ -339,7 +339,7 @@ stages:
           $(Build.BuildId)
         arguments: '--platform linux/amd64 --build-arg REACT_APP_BACKEND_URL=http://backend-instance-qa.brazilsouth.azurecontainer.io:8081 --no-cache'
 
-•⁠  ⁠stage: DeployToACI
+- ⁠stage: DeployToACI
   displayName: "🚀 Deploy Backend QA to Azure Container Instance"
   dependsOn: BuildAndPushImages
   jobs:

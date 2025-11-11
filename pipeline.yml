@@ -30,7 +30,6 @@ variables:
     value: 'backend'
   - name: frontendImage
     value: 'frontend'
-
   # ====== SonarCloud ======
   - name: sonarServiceConnection
     value: 'SonarCloud'
@@ -238,25 +237,17 @@ stages:
         inputs:
           script: |
             set -e
-
             export GOPROXY=https://proxy.golang.org,direct
             export GOPRIVATE=
-
             cd Golang
             echo "go mod tidy"
             go mod tidy
-            
             echo "Tests con coverage (se guarda en Golang/coverage.out)"
             go test ./... -coverprofile=coverage.out -covermode=atomic
-
             echo "Instalando gocov-xml..."
-            # Este comando ahora usará el GOPROXY y no debería fallar
             go install github.com/boumenot/gocov-xml@latest
-            
             echo "Convirtiendo coverage.out a cobertura.xml..."
-
             ~/go/bin/gocov-xml < coverage.out > cobertura.xml
-            
             echo "🔨 Build linux amd64"
             GOOS=linux GOARCH=amd64 go build -o ../app
 
@@ -265,7 +256,7 @@ stages:
         inputs:
           codeCoverageTool: 'Cobertura'
           summaryFileLocation: 'Golang/cobertura.xml' 
-          failIfCoverageEmpty: false      
+          failIfCoverageEmpty: false
       
       - script: |
           echo "🔍 [DEBUG] Verificando AMBOS reportes de cobertura"
@@ -327,7 +318,7 @@ stages:
         - task: Docker@2
           displayName: "Build & Push Frontend Image"
           inputs:
-            command: buildAndPush
+            command: buildAndPus
             containerRegistry: '$(acrConnection)'
             repository: '$(frontendImage)'
             dockerfile: 'frontend/Dockerfile'

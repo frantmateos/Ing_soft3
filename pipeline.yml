@@ -254,12 +254,11 @@ stages:
         condition: always()
 
       - task: SonarCloudAnalyze@3 
-        name: SonarAnalyzeTask    
         displayName: "Run SonarCloud Analysis (Backend)"
 
       - task: SonarCloudPublish@3
         displayName: "Publish SonarCloud Results (Backend)"
-        condition: "succeeded('SonarAnalyzeTask')"
+        condition: succeeded()
         inputs:
           pollingTimeoutSec: '300'
 

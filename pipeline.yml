@@ -377,6 +377,11 @@ stages:
         docker images | grep backend || echo "No se encontró imagen backend"
       displayName: "Listar imágenes locales (post-build)"
 
+    - script: |
+      echo "🔧 Forzando Docker Buildx para amd64..."
+      docker buildx create --use --name mybuilder || true
+      docker buildx inspect mybuilder --bootstrap
+    displayName: "Enable Docker Buildx (Linux/amd64)"
 
     - task: Docker@2
       displayName: "Build & Push Frontend Image"
@@ -391,7 +396,7 @@ stages:
         tags: |
           latest
           $(Build.BuildId)
-        arguments: '--platform linux/amd64 --no-cache'
+        arguments: '--platform linux/amd64 --no-cache --progress=plain'
 
 - stage: DeployToACI
   displayName: "🚀 Deploy Backend QA to Azure Container Instance"

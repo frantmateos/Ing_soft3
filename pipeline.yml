@@ -478,32 +478,6 @@ stages:
             --restart-policy Always
 
 
-
-
-# ===========================
-# STAGE 3: DEPLOY QA
-# ===========================
-- stage: DeployQA
-  displayName: "🚀 Deploy to QA (Containers)"
-  dependsOn: BuildAndPushImages
-  jobs:
-  - job: DeployContainersQA
-    steps:
-    - task: AzureWebAppContainer@1
-      displayName: "Deploy Backend QA Container"
-      inputs:
-        azureSubscription: '$(azureSubscription)'
-        appName: 'docker-backend-qa'
-        containers: |
-          $(acrLoginServer)/$(backendImage):latest
-
-    - task: AzureWebAppContainer@1
-      displayName: "Deploy Frontend QA Container"
-      inputs:
-        azureSubscription: '$(azureSubscription)'
-        appName: 'docker-frontend-qa'
-        containers: |
-          $(acrLoginServer)/$(frontendImage):latest
 # ===========================
 # STAGE 2.5: E2E QA (Cypress)
 # ===========================
@@ -559,53 +533,88 @@ stages:
         publishLocation: 'Container'
 
 # ===========================
-# STAGE 3: DEPLOY PROD
+# STAGE 4: DEPLOY PROD (Docker)
 # ===========================
-- stage: DeployPROD
-  displayName: "🚀 Deploy to Production (Manual Approval)"
-  dependsOn:
-    - DeployQA
-    - E2E_QA
+- stage: DeployPROD_DOCKER
+  displayName: "🚀 Deploy to Production (Docker ACI)"
+  dependsOn: BuildAndPushImages
   condition: succeeded()
   jobs:
-  - deployment: DeployFrontendPROD
-    displayName: "Deploy Frontend PROD"
-    environment:
-      name: 'PRODU'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: 30f35852-3f7e-4c0c-9a88-e127b4f97211@1
-            inputs:
-              alias: current
-              artifact: drop_front_prod
-          - task: AzureWebApp@1
-            displayName: "Deploy Frontend to PROD Web App"
-            inputs:
-              azureSubscription: '$(azureSubscription)'
-              appType: 'webApp'
-              appName: '$(webAppFrontendPROD)'
-              package: '$(Pipeline.Workspace)/drop_front_prod/frontend-prod.zip'
 
-  - deployment: DeployBackendPROD
-    displayName: "Deploy Backend PROD"
-    environment:
-      name: 'PRODU'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: 30f35852-3f7e-4c0c-9a88-e127b4f97211@1
-            inputs:
-              alias: current
-              artifact: drop_back
-          - task: AzureWebApp@1
-            displayName: "Deploy Backend to PROD Web App"
-            inputs:
-              azureSubscription: '$(azureSubscription)'
-              appType: 'webApp'
-              appName: '$(webAppBackendPROD)'
-              package: '$(Pipeline.Workspace)/drop_back/backend.zip'
-              appSettings: |
-                -name WEBSITE_STARTUP_FILE -value ./app
+  - job: DeployBackendACI_PROD
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: AzureCLI@2
+      displayName: "Deploy Backend PROD (Docker ACI)"
+      inputs:
+        azureSubscription: '$(azureSubscription)'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "🐳 Deploying backend PROD container (ACI)..."
+
+          # Borrar si ya existe
+          az container delete \
+            --resource-group TP5-2025 \
+            --name backend-instance-prod \
+            --yes || true
+
+          # Crear contenedor nuevo
+          az container create \
+            --resource-group TP5-2025 \
+            --name backend-instance-prod \
+            --image $(acrLoginServer)/$(backendImage):latest \
+            --dns-name-label backend-instance-prod \
+            --ports 8081 \
+            --os-type Linux \
+            --registry-login-server $(acrLoginServer) \
+            --registry-username IngSoft3UCC \
+            --registry-password $(AZURE_ACR_PASSWORD) \
+            --environment-variables \
+              PORT=8081 \
+              ENVIRONMENT=PRODU \
+              DB_HOST=mysql-server-2025.mysql.database.azure.com \
+              DB_NAME=tp05_produ \
+              DB_USER=adminqa \
+              DB_PASS=Tomas1927 \
+            --cpu 1 \
+            --memory 1.5 \
+            --restart-policy Always
+
+
+  - job: DeployFrontendACI_PROD
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: AzureCLI@2
+      displayName: "Deploy Frontend PROD (Docker ACI)"
+      inputs:
+        azureSubscription: '$(azureSubscription)'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "🐳 Deploying frontend PROD container (ACI)..."
+
+          # Borrar si ya existe
+          az container delete \
+            --resource-group TP5-2025 \
+            --name frontend-instance-prod \
+            --yes || true
+
+          # Crear nuevo contenedor para el frontend
+          az container create \
+            --resource-group TP5-2025 \
+            --name frontend-instance-prod \
+            --image $(acrLoginServer)/$(frontendImage):latest \
+            --dns-name-label frontend-instance-prod \
+            --ip-address Public \
+            --ports 80 \
+            --os-type Linux \
+            --registry-login-server $(acrLoginServer) \
+            --registry-username IngSoft3UCC \
+            --registry-password $(AZURE_ACR_PASSWORD) \
+            --environment-variables REACT_APP_BACKEND_URL="http://backend-instance-prod.brazilsouth.azurecontainer.io:8081" \
+            --cpu 1 \
+            --memory 1.0 \
+            --restart-policy Always

@@ -391,7 +391,7 @@ stages:
         tags: |
           latest
           $(Build.BuildId)
-        arguments: '--platform linux/amd64 --no-cache'
+        arguments: '--no-cache'
 
 - stage: DeployToACI
   displayName: "🚀 Deploy Backend QA to Azure Container Instance"

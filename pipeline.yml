@@ -473,8 +473,6 @@ stages:
             --registry-login-server $(acrLoginServer) \
             --registry-username IngSoft3UCC \
             --registry-password $(AZURE_ACR_PASSWORD) \
-            --environment-variables \
-              REACT_APP_BACKEND_URL=http://backend-instance-qa.brazilsouth.azurecontainer.io:8081 \
             --cpu 1 \
             --memory 1.0 \
             --restart-policy Always

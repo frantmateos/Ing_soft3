@@ -200,14 +200,14 @@ stages:
     dependsOn: BuildAndTestFrontQA
     steps:
       - checkout: self
-        fetchDepth: 0 # <-- Esto ahora SÍ funcionará
+        fetchDepth: 0
+        persistCredentials: true
 
       - task: GoTool@0
         inputs:
           version: '1.22.1'
         displayName: "Use Go 1.22.1"
 
-      # PREPARE SonarCloud 100% manual (sin sonar-project.properties)
       - task: SonarCloudPrepare@2
         displayName: "SonarCloud Prepare (Backend)"
         inputs:
@@ -215,7 +215,7 @@ stages:
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
           configMode: 'manual'
-          cliProjectKey: 'Ing_soft3_backend'
+          cliProjectKey: 'Ing_soft3'
           cliProjectName: 'Backend (Go)'
           extraProperties: |
             sonar.projectBaseDir=$(Build.SourcesDirectory)/Golang

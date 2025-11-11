@@ -378,10 +378,10 @@ stages:
       displayName: "Listar imágenes locales (post-build)"
 
     - script: |
-      echo "🔧 Forzando Docker Buildx para amd64..."
-      docker buildx create --use --name mybuilder || true
-      docker buildx inspect mybuilder --bootstrap
-    displayName: "Enable Docker Buildx (Linux/amd64)"
+        echo "🔧 Forzando Docker Buildx para amd64..."
+        docker buildx create --use --name mybuilder || true
+        docker buildx inspect mybuilder --bootstrap
+      displayName: "Enable Docker Buildx (Linux/amd64)"
 
     - task: Docker@2
       displayName: "Build & Push Frontend Image"

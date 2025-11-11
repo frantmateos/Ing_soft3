@@ -195,7 +195,7 @@ stages:
           artifactName: 'drop_front_prod'
 
   # ---------- BACKEND (Go) + SONARQUBE ----------
-   - job: BuildAndTestBack
+  - job: BuildAndTestBack
     displayName: "Build & Test Backend (Go) + SonarCloud"
     dependsOn: BuildAndTestFrontQA
     steps:

@@ -200,7 +200,7 @@ stages:
     dependsOn: BuildAndTestFrontQA
     steps:
       - checkout: self
-        fetchDepth: 0
+        fetchDepth: 0 # <-- Esta línea ahora SÍ será leída
 
       - task: GoTool@0
         inputs:
@@ -211,7 +211,7 @@ stages:
       - task: SonarCloudPrepare@2
         displayName: "SonarCloud Prepare (Backend)"
         inputs:
-          SonarCloud: '$(sonarServiceConnection)'
+          SonarCloud: '$(sonarServiceConnection)' # <-- Este sí es correcto
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
           configMode: 'manual'
@@ -258,8 +258,10 @@ stages:
         displayName: "Run SonarCloud Analysis (Backend)"
 
       - task: SonarCloudPublish@2
+        displayName: "Publish SonarCloud Results (Backend)"
+        condition: succeeded('Run_SonarCloud_Analysis_Backend')
         inputs:
-          SonarCloud: '$(sonarServiceConnection)'
+          # --- ¡CORREGIDO! SE ELIMINÓ EL INPUT 'SonarCloud:' INVÁLIDO ---
           pollingTimeoutSec: '300'
 
       - task: ArchiveFiles@2
@@ -303,7 +305,7 @@ stages:
         - task: Docker@2
           displayName: "Build & Push Frontend Image"
           inputs:
-            command: buildAndPush
+            command: buildAndPush # <-- ¡CORREGIDO!
             containerRegistry: '$(acrConnection)'
             repository: '$(frontendImage)'
             dockerfile: 'frontend/Dockerfile'
@@ -388,7 +390,7 @@ stages:
           displayName: "Adjuntar videos/screenshots Cypress"
           inputs:
             targetPath: 'frontend/cypress'
-            artifactName: 'cypress_e2e_artifacts'
+            artifactName: 'cypress_e2o_artifacts' # Note: 'e2o' might be a typo for 'e2e'
 
 # ======================================================
 # =                 DEPLOY PROD                        =

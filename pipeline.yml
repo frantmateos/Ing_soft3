@@ -215,7 +215,7 @@ stages:
           organization: '$(sonarOrg)'
           scannerMode: 'CLI'
           configMode: 'manual'
-          cliProjectKey: 'Ing_soft3'
+          cliProjectKey: 'Ing_soft3_backend'
           cliProjectName: 'Backend (Go)'
           extraProperties: |
             sonar.projectBaseDir=$(Build.SourcesDirectory)/Golang

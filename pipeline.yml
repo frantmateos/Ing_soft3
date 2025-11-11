@@ -258,9 +258,10 @@ stages:
 
       - task: SonarCloudPublish@3
         displayName: "Publish SonarCloud Results (Backend)"
-        condition: succeeded()
         inputs:
+          SonarCloud: '$(sonarServiceConnection)'
           pollingTimeoutSec: '300'
+        condition: succeeded()
 
       - task: ArchiveFiles@2
         displayName: "Zip backend binary"

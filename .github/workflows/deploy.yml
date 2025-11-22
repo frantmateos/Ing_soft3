@@ -141,7 +141,7 @@ jobs:
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
           --dns-name-label frontend-instance-qa \
-          --ports 80
+          --ports 80 \
           --os-type Linux \
           --cpu 1 \
           --memory 1.0

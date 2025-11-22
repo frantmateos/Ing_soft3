@@ -196,35 +196,31 @@ jobs:
     name: E2E Cypress Tests (QA)
     needs: deploy-qa
     runs-on: ubuntu-latest
-
+  
     steps:
     - uses: actions/checkout@v3
-
+  
     - name: Setup Node
       uses: actions/setup-node@v3
       with:
         node-version: 16
-
+  
     - name: Install Cypress
       run: |
         cd frontend
         npm install --legacy-peer-deps
         npx cypress verify
-
-    - name: Run Cypress Tests
+  
+    - name: Run Cypress Tests against QA
       run: |
         cd frontend
         mkdir -p cypress/results
         npx cypress run \
           --spec "cypress/e2e/test-*.cy.js" \
           --reporter junit \
-          --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true"
+          --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true" \
+          --config baseUrl=https://frontend-instance-qa.brazilsouth.azurecontainer.io
 
-    - name: Upload Cypress Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: cypress-results
-        path: frontend/cypress
 
   # ==========================================================
   # 6) DEPLOY PRODUCTION (solo si TODO salió bien)

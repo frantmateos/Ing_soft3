@@ -24,16 +24,15 @@ type SQL struct {
 }
 
 func NewSql(config MySQLConfig) SQL {
-	// Azure exige TLS. Usamos skip-verify (más simple y suficiente para este TP)
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:3306)/%s?charset=utf8&parseTime=True&tls=skip-verify",
 		config.User, config.Pass, config.Host, config.Name)
 
 	db, err := gorm.Open("mysql", dsn)
 	if err != nil {
-		log.Println("❌ Connection Failed to Open")
+		log.Println("Connection Failed to Open")
 		log.Fatal(err)
 	} else {
-		log.Println("✅ Connection Established (Azure MySQL, TLS enabled)")
+		log.Println("Connection Established (Azure MySQL, TLS enabled)")
 	}
 
 	db.AutoMigrate(&Model.User{})
@@ -43,7 +42,6 @@ func NewSql(config MySQLConfig) SQL {
 		Database: config.Name,
 	}
 }
-
 
 func (repository SQL) InsertUser(user Model.User) (Model.User, error) {
 

@@ -26,15 +26,15 @@ type Controller interface {
 func main() {
 
 	if err := godotenv.Load(); err != nil {
-        log.Println("No .env file found")
-    }
+		log.Println("No .env file found")
+	}
 
-    sqlconfig := repo.MySQLConfig{
-        Name: os.Getenv("DB_NAME"),
-        User: os.Getenv("DB_USER"),
-        Pass: os.Getenv("DB_PASS"),
-        Host: os.Getenv("DB_HOST"),
-    }
+	sqlconfig := repo.MySQLConfig{
+		Name: os.Getenv("DB_NAME"),
+		User: os.Getenv("DB_USER"),
+		Pass: os.Getenv("DB_PASS"),
+		Host: os.Getenv("DB_HOST"),
+	}
 
 	mainRepo := repo.NewSql(sqlconfig)
 	Service := service.NewService(mainRepo)
@@ -45,8 +45,13 @@ func main() {
 		origin := c.Request.Header.Get("Origin")
 
 		allowedOrigins := []string{
+			"https://localhost:3000",
+			"http://localhost:3000",
+			"http://127.0.0.1:3000",
 			"https://webapp-qa-2025.azurewebsites.net",
 			"https://webapp-produ-2025.azurewebsites.net",
+			"http://frontend-instance-qa.brazilsouth.azurecontainer.io",
+    		"http://frontend-instance-prod.brazilsouth.azurecontainer.io",
 		}
 		for _, o := range allowedOrigins {
 			if strings.HasPrefix(origin, o) {
@@ -78,7 +83,7 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080" 
+		port = "8080"
 	}
 	router.Run(":" + port)
 

@@ -1,0 +1,141 @@
+name: CI-CD ACR + ACI
+
+on:
+  push:
+    branches: [ "main", "Task-1" ]
+
+env:
+  ACR_NAME: ingsoft3ucc
+  ACR_LOGIN_SERVER: ingsoft3ucc.azurecr.io
+  RESOURCE_GROUP: TP5-2025
+  BACKEND_IMAGE: backend
+  FRONTEND_IMAGE: frontend
+
+jobs:
+
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: "1.22"
+
+    - name: Build Backend
+      run: |
+        cd Golang
+        go mod tidy
+        go test ./...
+        GOOS=linux GOARCH=amd64 go build -o ../app
+
+    - name: Upload backend build
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-build
+        path: app
+
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Node 16
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+
+    - name: Build Frontend
+      run: |
+        cd frontend
+        echo "REACT_APP_BACKEND_URL=http://backend-instance-qa.brazilsouth.azurecontainer.io:8081" > .env
+        npm install --legacy-peer-deps
+        CI=false npm run build
+
+    - name: Upload frontend build
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/build
+
+  docker-build-push:
+    name: Build & Push Images to ACR
+    needs: [ build-backend, build-frontend ]
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Azure Login (Service Principal)
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Azure CLI - Login to ACR
+      run: az acr login --name $ACR_NAME
+
+    - name: Build Backend Image
+      run: |
+        docker build \
+          -t $ACR_LOGIN_SERVER/$BACKEND_IMAGE:latest \
+          -f Golang/Dockerfile .
+
+    - name: Build Frontend Image
+      run: |
+        docker build \
+          -t $ACR_LOGIN_SERVER/$FRONTEND_IMAGE:latest \
+          -f frontend/Dockerfile frontend/
+
+    - name: Push Images
+      run: |
+        docker push $ACR_LOGIN_SERVER/$BACKEND_IMAGE:latest
+        docker push $ACR_LOGIN_SERVER/$FRONTEND_IMAGE:latest
+
+  deploy-qa:
+    name: Deploy QA on ACI
+    needs: docker-build-push
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy Backend QA
+      run: |
+        az container delete -g $RESOURCE_GROUP -n backend-instance-qa --yes || true
+        az container create \
+          -g $RESOURCE_GROUP \
+          -n backend-instance-qa \
+          --image $ACR_LOGIN_SERVER/$BACKEND_IMAGE:latest \
+          --registry-login-server $ACR_LOGIN_SERVER \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
+          --dns-name-label backend-instance-qa \
+          --ports 8081 \
+          --environment-variables \
+              PORT=8081 \
+              ENVIRONMENT=QA \
+              DB_HOST=mysql-server-2025.mysql.database.azure.com \
+              DB_NAME=tp05_qa \
+              DB_USER=adminqa \
+              DB_PASS=Tomas1927
+
+    - name: Deploy Frontend QA
+      run: |
+        az container delete -g $RESOURCE_GROUP -n frontend-instance-qa --yes || true
+        az container create \
+          -g $RESOURCE_GROUP \
+          -n frontend-instance-qa \
+          --image $ACR_LOGIN_SERVER/$FRONTEND_IMAGE:latest \
+          --registry-login-server $ACR_LOGIN_SERVER \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
+          --dns-name-label frontend-instance-qa \
+          --ports 80

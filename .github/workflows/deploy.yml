@@ -118,6 +118,7 @@ jobs:
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
           --dns-name-label backend-instance-qa \
+          --os-type Linux \
           --ports 8081 \
           --environment-variables \
               PORT=8081 \
@@ -139,3 +140,5 @@ jobs:
           --registry-password ${{ secrets.ACR_PASSWORD }} \
           --dns-name-label frontend-instance-qa \
           --ports 80
+          --os-type Linux \
+

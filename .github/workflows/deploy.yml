@@ -2,7 +2,7 @@ name: CI-CD ACR + ACI
 
 on:
   push:
-    branches: [ "main", "Task-1" ]
+    branches: ["main", "Task-1"]
 
 env:
   ACR_NAME: ingsoft3ucc
@@ -12,9 +12,11 @@ env:
   FRONTEND_IMAGE: frontend
 
 jobs:
-
+  # ==========================================================
+  # 1) BUILD + TEST BACKEND (Go)
+  # ==========================================================
   build-backend:
-    name: Build Backend
+    name: Build & Test Backend
     runs-on: ubuntu-latest
 
     steps:
@@ -25,58 +27,95 @@ jobs:
       with:
         go-version: "1.22"
 
-    - name: Build Backend
+    - name: Run Backend Tests (JUnit + coverage)
       run: |
         cd Golang
         go mod tidy
-        go test ./...
+        go test ./... -v -coverprofile=coverage.out -json > test-report.json
+
+    - name: Upload Backend Test Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-tests
+        path: Golang/test-report.json
+
+    - name: Upload Backend Coverage
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-coverage
+        path: Golang/coverage.out
+
+    - name: Build Backend Binary
+      run: |
+        cd Golang
         GOOS=linux GOARCH=amd64 go build -o ../app
 
-    - name: Upload backend build
+    - name: Upload Backend Build
       uses: actions/upload-artifact@v4
       with:
         name: backend-build
         path: app
 
+  # ==========================================================
+  # 2) BUILD + TEST FRONTEND (Jest + JUnit)
+  # ==========================================================
   build-frontend:
-    name: Build Frontend
+    name: Build & Test Frontend
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
 
-    - name: Install Node 16
+    - name: Setup Node 16
       uses: actions/setup-node@v3
       with:
-        node-version: '16'
+        node-version: 16
+
+    - name: Install & Test Frontend
+      run: |
+        cd frontend
+        echo "REACT_APP_BACKEND_URL=http://backend-instance-qa.brazilsouth.azurecontainer.io:8081" > .env
+
+        npm install --legacy-peer-deps
+
+        # Run tests with JUnit report
+        npm install jest-junit --legacy-peer-deps
+        JEST_JUNIT_OUTPUT=./junit.xml npm test -- --watchAll=false --reporters=default --reporters=jest-junit
+
+    - name: Upload Frontend Test Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-tests
+        path: frontend/junit.xml
 
     - name: Build Frontend
       run: |
         cd frontend
-        echo "REACT_APP_BACKEND_URL=http://backend-instance-qa.brazilsouth.azurecontainer.io:8081" > .env
-        npm install --legacy-peer-deps
         CI=false npm run build
 
-    - name: Upload frontend build
+    - name: Upload Frontend Build
       uses: actions/upload-artifact@v4
       with:
         name: frontend-build
         path: frontend/build
 
+  # ==========================================================
+  # 3) BUILD & PUSH DOCKER IMAGES
+  # ==========================================================
   docker-build-push:
-    name: Build & Push Images to ACR
-    needs: [ build-backend, build-frontend ]
+    name: Build & Push Docker
+    needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
 
-    - name: Azure Login (Service Principal)
+    - name: Azure Login
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Azure CLI - Login to ACR
+    - name: Login to ACR
       run: az acr login --name $ACR_NAME
 
     - name: Build Backend Image
@@ -93,19 +132,21 @@ jobs:
           --build-arg REACT_APP_BACKEND_URL="http://backend-instance-qa.brazilsouth.azurecontainer.io:8081" \
           frontend/
 
-    - name: Push Images
+    - name: Push Docker Images
       run: |
         docker push $ACR_LOGIN_SERVER/$BACKEND_IMAGE:latest
         docker push $ACR_LOGIN_SERVER/$FRONTEND_IMAGE:latest
 
+  # ==========================================================
+  # 4) DEPLOY QA (BACK + FRONT)
+  # ==========================================================
   deploy-qa:
-    name: Deploy QA on ACI
+    name: Deploy QA
     needs: docker-build-push
     runs-on: ubuntu-latest
 
     steps:
-    - name: Azure Login
-      uses: azure/login@v1
+    - uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -125,12 +166,12 @@ jobs:
           --cpu 1 \
           --memory 1.5 \
           --environment-variables \
-              PORT=8081 \
-              ENVIRONMENT=QA \
-              DB_HOST=mysql-server-2025.mysql.database.azure.com \
-              DB_NAME=tp05_qa \
-              DB_USER=adminqa \
-              DB_PASS=Tomas1927
+            PORT=8081 \
+            ENVIRONMENT=QA \
+            DB_HOST=mysql-server-2025.mysql.database.azure.com \
+            DB_NAME=tp05_qa \
+            DB_USER=adminqa \
+            DB_PASS=Tomas1927
 
     - name: Deploy Frontend QA
       run: |
@@ -143,8 +184,93 @@ jobs:
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
           --dns-name-label frontend-instance-qa \
-          --ports 80 \
           --os-type Linux \
+          --ports 80 \
           --cpu 1 \
           --memory 1.0
 
+  # ==========================================================
+  # 5) E2E CYPRESS QA
+  # ==========================================================
+  e2e-qa:
+    name: E2E Cypress Tests (QA)
+    needs: deploy-qa
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: 16
+
+    - name: Install Cypress
+      run: |
+        cd frontend
+        npm install --legacy-peer-deps
+        npx cypress verify
+
+    - name: Run Cypress Tests
+      run: |
+        cd frontend
+        mkdir -p cypress/results
+        npx cypress run \
+          --spec "cypress/e2e/test-*.cy.js" \
+          --reporter junit \
+          --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true"
+
+    - name: Upload Cypress Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: cypress-results
+        path: frontend/cypress
+
+  # ==========================================================
+  # 6) DEPLOY PRODUCTION (solo si TODO salió bien)
+  # ==========================================================
+  deploy-prod:
+    name: Deploy PROD
+    needs: [e2e-qa]
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy Backend PROD
+      run: |
+        az container delete -g $RESOURCE_GROUP -n backend-instance-prod --yes || true
+        az container create \
+          -g $RESOURCE_GROUP \
+          -n backend-instance-prod \
+          --image $ACR_LOGIN_SERVER/$BACKEND_IMAGE:latest \
+          --dns-name-label backend-instance-prod \
+          --os-type Linux \
+          --ports 8081 \
+          --cpu 1 \
+          --memory 1.5 \
+          --environment-variables \
+            PORT=8081 \
+            ENVIRONMENT=PRODU \
+            DB_HOST=mysql-server-2025.mysql.database.azure.com \
+            DB_NAME=tp05_produ \
+            DB_USER=adminqa \
+            DB_PASS=Tomas1927
+
+    - name: Deploy Frontend PROD
+      run: |
+        az container delete -g $RESOURCE_GROUP -n frontend-instance-prod --yes || true
+        az container create \
+          -g $RESOURCE_GROUP \
+          -n frontend-instance-prod \
+          --image $ACR_LOGIN_SERVER/$FRONTEND_IMAGE:latest \
+          --dns-name-label frontend-instance-prod \
+          --os-type Linux \
+          --ip-address Public \
+          --ports 80 \
+          --cpu 1 \
+          --memory 1.0 \
+          --environment-variables \
+            REACT_APP_BACKEND_URL="http://backend-instance-prod.brazilsouth.azurecontainer.io:8081"

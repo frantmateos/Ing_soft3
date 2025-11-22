@@ -242,6 +242,9 @@ jobs:
           -g $RESOURCE_GROUP \
           -n backend-instance-prod \
           --image $ACR_LOGIN_SERVER/$BACKEND_IMAGE:latest \
+          --registry-login-server $ACR_LOGIN_SERVER \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
           --dns-name-label backend-instance-prod \
           --os-type Linux \
           --ports 8081 \
@@ -255,6 +258,7 @@ jobs:
             DB_USER=adminqa \
             DB_PASS=Tomas1927
 
+
     - name: Deploy Frontend PROD
       run: |
         az container delete -g $RESOURCE_GROUP -n frontend-instance-prod --yes || true
@@ -262,6 +266,9 @@ jobs:
           -g $RESOURCE_GROUP \
           -n frontend-instance-prod \
           --image $ACR_LOGIN_SERVER/$FRONTEND_IMAGE:latest \
+          --registry-login-server $ACR_LOGIN_SERVER \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
           --dns-name-label frontend-instance-prod \
           --os-type Linux \
           --ip-address Public \

@@ -12,7 +12,7 @@ function closeAnySwal() {
 }
 
 describe('Login como Administrador y creación de nuevo cliente (robusto)', () => {
-  const baseUrl = 'https://webapp-qa-2025.azurewebsites.net';
+  const baseUrl = 'http://frontend-instance-qa.brazilsouth.azurecontainer.io';
 
   const admin = {
     nombre: 'admin_test',

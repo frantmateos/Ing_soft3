@@ -89,7 +89,9 @@ jobs:
       run: |
         docker build \
           -t $ACR_LOGIN_SERVER/$FRONTEND_IMAGE:latest \
-          -f frontend/Dockerfile frontend/
+          -f frontend/Dockerfile \
+          --build-arg REACT_APP_BACKEND_URL="https://backend-instance-qa.brazilsouth.azurecontainer.io:8081" \ \
+          frontend/
 
     - name: Push Images
       run: |

@@ -219,7 +219,7 @@ jobs:
           --spec "cypress/e2e/test-*.cy.js" \
           --reporter junit \
           --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true" \
-          --config baseUrl=https://frontend-instance-qa.brazilsouth.azurecontainer.io
+          --config baseUrl=http://frontend-instance-qa.brazilsouth.azurecontainer.io
 
 
   # ==========================================================

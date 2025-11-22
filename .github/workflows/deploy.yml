@@ -120,6 +120,8 @@ jobs:
           --dns-name-label backend-instance-qa \
           --os-type Linux \
           --ports 8081 \
+          --cpu 1 \
+          --memory 1.5 \
           --environment-variables \
               PORT=8081 \
               ENVIRONMENT=QA \
@@ -141,4 +143,6 @@ jobs:
           --dns-name-label frontend-instance-qa \
           --ports 80
           --os-type Linux \
+          --cpu 1 \
+          --memory 1.0
 

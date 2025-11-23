@@ -61,8 +61,8 @@ jobs:
           -Dsonar.projectKey=frantmateos_Ing_soft32
           -Dsonar.organization=${{ secrets.SONAR_ORG }}
           -Dsonar.projectBaseDir=Golang
-          -Dsonar.sources=./
-          -Dsonar.tests=.
+          -Dsonar.sources=.
+          -Dsonar.tests=./tests
           -Dsonar.go.coverage.reportPaths=coverage.out
           -Dsonar.inclusions=**/*.go
           -Dsonar.exclusions=./frontend/**,**/Dockerfile

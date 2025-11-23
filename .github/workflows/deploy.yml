@@ -130,7 +130,7 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
         args: >
-          -Dsonar.projectKey=frantmateos_Ing_soft32-frontend
+          -Dsonar.projectKey=frantmateos_Ing_soft32
           -Dsonar.organization=${{ secrets.SONAR_ORG }}
           -Dsonar.projectBaseDir=frontend
           -Dsonar.sources=src

@@ -58,7 +58,7 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
         args: >
-          -Dsonar.projectKey=FranciscoMateosFinal_Ing_soft3
+          -Dsonar.projectKey=frantmateos_Ing_soft32
           -Dsonar.organization=${{ secrets.SONAR_ORG }}
           -Dsonar.projectBaseDir=Golang
           -Dsonar.sources=.
@@ -130,7 +130,7 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
         args: >
-          -Dsonar.projectKey=FranciscoMateosFinal_Ing_soft3
+          -Dsonar.projectKey=frantmateos_Ing_soft32
           -Dsonar.organization=${{ secrets.SONAR_ORG }}
           -Dsonar.projectBaseDir=frontend
           -Dsonar.sources=src

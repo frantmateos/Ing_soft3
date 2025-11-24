@@ -229,8 +229,7 @@ jobs:
           --spec "cypress/e2e/test-*.cy.js" \
           --reporter junit \
           --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true" \
-          --config baseUrl=http://frontend-instance-qa.brazilsouth.azurecontainer.io
-
+          --config baseUrl=https://frontend-qa-production.up.railway.app
 
   # ======================================================
   # 6) BUILD & PUSH DOCKER IMAGES PROD (solo si QA pasa)

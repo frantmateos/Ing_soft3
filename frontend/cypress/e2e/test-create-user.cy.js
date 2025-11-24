@@ -12,7 +12,7 @@ function closeAnySwal() {
 }
 
 describe('Login como Administrador y creación de nuevo cliente (robusto)', () => {
-  const baseUrl = 'http://frontend-instance-qa.brazilsouth.azurecontainer.io';
+  const baseUrl = 'https://frontend-qa-production.up.railway.app';
 
   const admin = {
     nombre: 'admin_test',

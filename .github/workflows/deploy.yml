@@ -58,13 +58,13 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
         args: >
-          -Dsonar.projectKey=FranciscoMateosFinal_Ing_soft3
+          -Dsonar.projectKey=frantmateos_Ing_soft32
           -Dsonar.organization=${{ secrets.SONAR_ORG }}
           -Dsonar.projectBaseDir=Golang
           -Dsonar.sources=.
-          -Dsonar.tests=.
           -Dsonar.go.coverage.reportPaths=coverage.out
-          -Dsonar.exclusions=**/*_test.go
+          -Dsonar.inclusions=**/*.go
+          -Dsonar.exclusions=./frontend/**,**/Dockerfile
           -Dsonar.host.url=https://sonarcloud.io
 
 
@@ -135,8 +135,9 @@ jobs:
           -Dsonar.projectBaseDir=frontend
           -Dsonar.sources=src
           -Dsonar.tests=src
+          -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx,**/__tests__/**
+          -Dsonar.exclusions=node_modules/**,build/**,../Golang/**,**/Dockerfile,src/setupTests.js
           -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-          -Dsonar.exclusions=**/*.test.*,**/node_modules/**
           -Dsonar.host.url=https://sonarcloud.io
 
 
@@ -165,7 +166,6 @@ jobs:
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
         grep -R "" coverage/lcov.info | head -n 20 >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-
 
 
 

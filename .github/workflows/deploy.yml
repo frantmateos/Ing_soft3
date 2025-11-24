@@ -202,20 +202,16 @@ jobs:
     - name: Install Railway CLI
       run: npm i -g @railway/cli
 
-    - name: Railway Login
+
+    - name: Deploy Backend QA to Railway
+      run: railway redeploy --service backend-qa
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      run: railway login
 
-    - name: Deploy to Railway (Frontend QA)
-      run: |
-        railway login --token ${{ secrets.RAILWAY_TOKEN }}
-        railway up --service=frontend-qa --image=${{ secrets.DOCKERHUB_USER }}/frontend:latest
-  
-    - name: Deploy to Railway (Backend QA)
-      run: |
-        railway login --token ${{ secrets.RAILWAY_TOKEN }}
-        railway up --service=backend-qa --image=${{ secrets.DOCKERHUB_USER }}/backend:latest
+    - name: Deploy Frontend QA to Railway
+      run: railway redeploy --service frontend-qa
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
 
 
@@ -286,18 +282,12 @@ jobs:
       run: npm i -g @railway/cli
 
 
-    - name: Railway Login
+    - name: Deploy Backend PROD to Railway
+      run: railway redeploy --service backend-prod
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      run: railway login
 
-
-    - name: Deploy to Railway (Frontend PRODU)
-      run: |
-        railway login --token ${{ secrets.RAILWAY_TOKEN }}
-        railway up --service=frontend-prod --image=${{ secrets.DOCKERHUB_USER }}/frontend-prod:latest
-  
-    - name: Deploy to Railway (Backend PRODU)
-      run: |
-        railway login --token ${{ secrets.RAILWAY_TOKEN }}
-        railway up --service=backend-prod --image=${{ secrets.DOCKERHUB_USER }}/backend-prod:latest
+    - name: Deploy Frontend PROD to Railway
+      run: railway redeploy --service frontend-prod
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

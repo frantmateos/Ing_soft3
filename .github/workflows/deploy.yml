@@ -109,7 +109,7 @@ jobs:
     - name: Install & Test Frontend
       run: |
         cd frontend
-        echo "REACT_APP_BACKEND_URL=http://backend-instance-qa.brazilsouth.azurecontainer.io:8081" > .env
+        echo "REACT_APP_BACKEND_URL=${{ secrets.BACKEND_QA_URL }}" > .env
 
         npm install --legacy-peer-deps
 
@@ -130,7 +130,7 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
         args: >
-          -Dsonar.projectKey=FranciscoMateosFinal_Ing_soft3
+          -Dsonar.projectKey=frantmateos_Ing_soft32
           -Dsonar.organization=${{ secrets.SONAR_ORG }}
           -Dsonar.projectBaseDir=frontend
           -Dsonar.sources=src

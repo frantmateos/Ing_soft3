@@ -84,7 +84,7 @@ const LoginRegister = () => {
     <div className={`wrapper ${action}`}>
       <div className="from-box login">
         <form onSubmit={handleSubmitLogin}>
-          <h1>Login Administradores</h1>
+          <h1>Login Administradores PRO</h1>
           <div className="input-box">
             <input 
               type="text" 

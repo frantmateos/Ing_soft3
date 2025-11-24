@@ -190,7 +190,7 @@ jobs:
     - name: Build Frontend QA
       run: |
         docker build \
-          -t $DOCKER_USER/frontend:latest \
+          -t ${{ secrets.DOCKERHUB_USER }}/frontend:latest \
           --build-arg REACT_APP_BACKEND_URL=${{ secrets.BACKEND_QA_URL }} \
           -f frontend/Dockerfile frontend/
 

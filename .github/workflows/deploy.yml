@@ -184,7 +184,7 @@ jobs:
     # BACKEND QA
     - name: Build Backend QA
       run: |
-        docker build -t $DOCKER_USER/backend:latest -f Golang/Dockerfile .
+        docker build -t ${{ secrets.DOCKERHUB_USER }}/backend:latest -f Golang/Dockerfile .
 
     # FRONTEND QA
     - name: Build Frontend QA
@@ -196,8 +196,8 @@ jobs:
 
     - name: Push QA images
       run: |
-        docker push $DOCKER_USER/backend:latest
-        docker push $DOCKER_USER/frontend:latest
+        docker push ${{ secrets.DOCKERHUB_USER }}/backend:latest
+        docker push ${{ secrets.DOCKERHUB_USER }}/frontend:latest
 
   # ==========================================================
   # 5) E2E CYPRESS QA
@@ -247,17 +247,17 @@ jobs:
     # BACKEND PROD
     - name: Build Backend PROD
       run: |
-        docker build -t $DOCKER_USER/backend-prod:latest -f Golang/Dockerfile .
+        docker build -t ${{ secrets.DOCKERHUB_USER }}/backend-prod:latest -f Golang/Dockerfile .
 
     # FRONTEND PROD
     - name: Build Frontend PROD
       run: |
         docker build \
-          -t $DOCKER_USER/frontend-prod:latest \
+          -t ${{ secrets.DOCKERHUB_USER }}/frontend-prod:latest \
           --build-arg REACT_APP_BACKEND_URL=${{ secrets.BACKEND_PROD_URL }} \
           -f frontend/Dockerfile frontend/
 
     - name: Push PROD images
       run: |
-        docker push $DOCKER_USER/backend-prod:latest
-        docker push $DOCKER_USER/frontend-prod:latest
+        docker push ${{ secrets.DOCKERHUB_USER }}/backend-prod:latest
+        docker push ${{ secrets.DOCKERHUB_USER }}/frontend-prod:latest

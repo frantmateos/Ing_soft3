@@ -52,6 +52,8 @@ func main() {
 			"https://webapp-produ-2025.azurewebsites.net",
 			"http://frontend-instance-qa.brazilsouth.azurecontainer.io",
     		"http://frontend-instance-prod.brazilsouth.azurecontainer.io",
+			"https://frontend-qa-production.up.railway.app",
+			"https://frontend-prod-production.up.railway.app",
 		}
 		for _, o := range allowedOrigins {
 			if strings.HasPrefix(origin, o) {

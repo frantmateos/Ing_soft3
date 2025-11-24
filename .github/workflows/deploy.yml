@@ -204,12 +204,12 @@ jobs:
 
 
     - name: Deploy Backend QA to Railway
-      run: railway redeploy --service backend-qa
+      run: railway redeploy --service backend-qa --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
     - name: Deploy Frontend QA to Railway
-      run: railway redeploy --service frontend-qa
+      run: railway redeploy --service frontend-qa --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
@@ -283,11 +283,11 @@ jobs:
 
 
     - name: Deploy Backend PROD to Railway
-      run: railway redeploy --service backend-prod
+      run: railway redeploy --service backend-prod --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
     - name: Deploy Frontend PROD to Railway
-      run: railway redeploy --service frontend-prod
+      run: railway redeploy --service frontend-prod --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

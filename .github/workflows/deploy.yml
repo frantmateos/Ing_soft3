@@ -202,6 +202,11 @@ jobs:
     - name: Install Railway CLI
       run: npm i -g @railway/cli
 
+    - name: Railway Login
+      run: |
+        export RAILWAY_TOKEN="${{ secrets.RAILWAY_TOKEN }}"
+        railway login --ci
+
     - name: Deploy to Railway (Frontend QA)
       run: |
         railway login --token ${{ secrets.RAILWAY_TOKEN }}
@@ -279,6 +284,13 @@ jobs:
 
     - name: Install Railway CLI
       run: npm i -g @railway/cli
+
+
+    - name: Railway Login
+      run: |
+        export RAILWAY_TOKEN="${{ secrets.RAILWAY_TOKEN }}"
+        railway login --ci
+
 
     - name: Deploy to Railway (Frontend PRODU)
       run: |

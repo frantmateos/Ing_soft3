@@ -11,12 +11,6 @@ permissions:
   pull-requests: write
 
 
-env:
-  ACR_NAME: ingsoft3ucc
-  ACR_LOGIN_SERVER: ingsoft3ucc.azurecr.io
-  RESOURCE_GROUP: TP5-2025
-  BACKEND_IMAGE: backend
-  FRONTEND_IMAGE: frontend
 
 jobs:
   # ==========================================================
@@ -257,8 +251,10 @@ jobs:
       name: PROD
     steps:
     - uses: actions/checkout@v3
-   
 
+    - name: Install Railway CLI
+      run: npm i -g @railway/cli
+   
     - name: Deploy Backend PROD to Railway
       run: railway redeploy --service backend-prod --yes
       env:

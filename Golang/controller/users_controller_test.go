@@ -66,7 +66,8 @@ func TestLogin_Controller_OK(t *testing.T) {
     assert.Equal(t, http.StatusOK, w.Code)
     var got Domain.LoginData
     json.Unmarshal(w.Body.Bytes(), &got)
-    assert.Equal(t, "tok", got.Token)
+    // fallo intencional para probar que la pipeline se detiene
+    assert.Equal(t, "WRONG-TOKEN", got.Token)
 }
 
 func TestGetUserById_Controller_BadID(t *testing.T) {

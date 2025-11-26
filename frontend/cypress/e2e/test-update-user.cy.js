@@ -1,6 +1,6 @@
 // cypress/e2e/test-update-user.cy.js
-const BASE_APP = 'https://webapp-qa-2025.azurewebsites.net';
-const BASE_API = 'https://backend-qa-2025.azurewebsites.net';
+const BASE_APP = 'https://frontend-qa-production.up.railway.app';
+const BASE_API = 'https://backend-qa-production.up.railway.app';
 
 function closeAnySwal() {
   // Cierra cualquier SweetAlert (de Login o de Update)

@@ -7,7 +7,7 @@ describe('Flujo de Registro y Login de Administrador', () => {
   };
 
   it('Permite registrar un nuevo usuario', () => {
-    cy.visit('http://frontend-instance-qa.brazilsouth.azurecontainer.io/');
+    cy.visit('https://frontend-qa-production.up.railway.app/');
     cy.contains('Regístrate').click();
 
     // (Opcional) Intercept para ver el 200
@@ -27,7 +27,7 @@ describe('Flujo de Registro y Login de Administrador', () => {
   });
 
   it('Permite hacer login con el usuario recién creado y acceder al Home', () => {
-    cy.visit('http://frontend-instance-qa.brazilsouth.azurecontainer.io/');
+    cy.visit('https://frontend-qa-production.up.railway.app/');
 
     cy.intercept('POST', '**/users/login').as('login');
     cy.intercept('GET', '**/users/token').as('token');

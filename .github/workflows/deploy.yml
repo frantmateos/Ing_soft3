@@ -219,6 +219,9 @@ jobs:
   
     steps:
     - uses: actions/checkout@v3
+
+    - name: Esperar 50 segundos para que QA levante
+      run: sleep 50
   
     - name: Setup Node
       uses: actions/setup-node@v3

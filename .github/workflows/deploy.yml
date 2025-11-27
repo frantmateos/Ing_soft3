@@ -11,7 +11,6 @@ permissions:
 
 
 jobs:
-
   # ==========================================================
   # 1) BUILD + TEST BACKEND (Go)
   # ==========================================================
@@ -22,9 +21,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Install jq
-      run: sudo apt-get update && sudo apt-get install -y jq
-
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
@@ -33,24 +29,22 @@ jobs:
     - name: Install gotestsum
       run: go install gotest.tools/gotestsum@latest
 
-    - name: Run Backend Tests + Coverage (for SonarCloud)
+    - name: Run Backend Tests (With Summary + Coverage for Sonar)
       run: |
         cd Golang
         go mod tidy
-    
-        # Ejecutar tests sin romper el pipeline por logs "error"
-        ~/go/bin/gotestsum --format standard-verbose --junitfile test-report.xml \
-          --jsonfile test-report.json ./... -- -coverprofile=coverage.out || true
-    
-        # Contar tests reales
-        total=$(jq '[ .Events[] | select(.Test != null) ] | length' test-report.json 2>/dev/null)
-        passed=$(jq '[ .Events[] | select(.Action=="pass") ] | length' test-report.json 2>/dev/null)
-        failed=$(jq '[ .Events[] | select(.Action=="fail") ] | length' test-report.json 2>/dev/null)
-    
-        total=${total:-0}
-        passed=${passed:-0}
-        failed=${failed:-0}
-    
+
+        # Ejecutar tests con gotestsum (para generar log + junit)
+        ~/go/bin/gotestsum --format testname --junitfile test-report.xml ./... | tee backend-tests.log
+
+        # Generar coverage para SonarCloud
+        go test ./... -coverprofile=coverage.out
+
+        # Contar resultados
+        total=$(grep -E "PASS|FAIL" backend-tests.log | wc -l)
+        passed=$(grep "PASS" backend-tests.log | wc -l)
+        failed=$(grep "FAIL" backend-tests.log | wc -l)
+
         echo "TOTAL_TESTS=$total" >> $GITHUB_ENV
         echo "PASSED_TESTS=$passed" >> $GITHUB_ENV
         echo "FAILED_TESTS=$failed" >> $GITHUB_ENV
@@ -61,16 +55,13 @@ jobs:
         name: backend-tests
         path: Golang/test-report.xml
 
-    - name: Upload Backend Coverage for SonarCloud
+    - name: Upload Backend Coverage (for Sonar)
       uses: actions/upload-artifact@v4
       with:
         name: backend-coverage
         path: Golang/coverage.out
 
-
-    # ------------------------------
-    # SONARCLOUD BACKEND
-    # ------------------------------
+    # ░░░░ SONARCLOUD (backend) ░░░░
     - name: SonarCloud Scan (Backend)
       uses: SonarSource/sonarcloud-github-action@master
       env:
@@ -83,9 +74,8 @@ jobs:
           -Dsonar.sources=.
           -Dsonar.go.coverage.reportPaths=coverage.out
           -Dsonar.inclusions=**/*.go
-          -Dsonar.exclusions=../frontend/**,**/Dockerfile
+          -Dsonar.exclusions=./frontend/**,**/Dockerfile
           -Dsonar.host.url=https://sonarcloud.io
-
 
     - name: Build Backend Binary
       run: |
@@ -98,8 +88,7 @@ jobs:
         name: backend-build
         path: app
 
-
-    - name: Publish Backend Test Summary
+    - name: Publish Summary (Backend Tests)
       run: |
         echo "## Backend Tests Summary" >> $GITHUB_STEP_SUMMARY
         echo "- Total tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
@@ -109,7 +98,7 @@ jobs:
 
 
   # ==========================================================
-  # 2) BUILD + TEST FRONTEND (Jest + JUnit)
+  # 2) BUILD + TEST FRONTEND (React)
   # ==========================================================
   build-frontend:
     name: Build & Test Frontend
@@ -127,12 +116,14 @@ jobs:
       run: |
         cd frontend
         echo "REACT_APP_BACKEND_URL=${{ secrets.BACKEND_QA_URL }}" > .env
-
         npm install --legacy-peer-deps
         npm install jest-junit --legacy-peer-deps
 
-        # Run tests with coverage for SonarCloud
-        JEST_JUNIT_OUTPUT=./junit.xml npm test -- --coverage --watchAll=false --reporters=default --reporters=jest-junit
+        # Ejecutar tests con reporte JUnit
+        JEST_JUNIT_OUTPUT=./junit.xml npm test -- --watchAll=false --reporters=default --reporters=jest-junit
+
+        # Coverage (solo para Sonar, sin mostrar en GitHub)
+        npm test -- --coverage --watchAll=false
 
     - name: Upload Frontend Test Results
       uses: actions/upload-artifact@v4
@@ -140,8 +131,13 @@ jobs:
         name: frontend-tests
         path: frontend/junit.xml
 
+    - name: Upload Frontend Coverage (for Sonar)
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-coverage
+        path: frontend/coverage/lcov.info
 
-    # SONARCLOUD FRONTEND
+    # ░░░░ SONARCLOUD (frontend) ░░░░
     - name: SonarCloud Scan (Frontend)
       uses: SonarSource/sonarcloud-github-action@master
       env:
@@ -157,7 +153,6 @@ jobs:
           -Dsonar.exclusions=node_modules/**,build/**,../Golang/**,**/Dockerfile,src/setupTests.js
           -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
           -Dsonar.host.url=https://sonarcloud.io
-
 
     - name: Build Frontend
       run: |
@@ -184,6 +179,7 @@ jobs:
   docker-build-push-qa:
     needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
+
     steps:
     - uses: actions/checkout@v3
 
@@ -191,7 +187,8 @@ jobs:
       run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USER }}" --password-stdin
 
     - name: Build Backend QA
-      run: docker build -t ${{ secrets.DOCKERHUB_USER }}/backend:latest -f Golang/Dockerfile .
+      run: |
+        docker build -t ${{ secrets.DOCKERHUB_USER }}/backend:latest -f Golang/Dockerfile .
 
     - name: Build Frontend QA
       run: |
@@ -204,16 +201,16 @@ jobs:
       run: |
         docker push ${{ secrets.DOCKERHUB_USER }}/backend:latest
         docker push ${{ secrets.DOCKERHUB_USER }}/frontend:latest
-        
+
     - name: Install Railway CLI
       run: npm i -g @railway/cli
 
-    - name: Deploy Backend QA
+    - name: Deploy Backend QA to Railway
       run: railway redeploy --service backend-qa --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
-    - name: Deploy Frontend QA
+    - name: Deploy Frontend QA to Railway
       run: railway redeploy --service frontend-qa --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
@@ -243,9 +240,9 @@ jobs:
       run: |
         cd frontend
         npm install --legacy-peer-deps
-        npx cypress.verify
+        npx cypress verify
   
-    - name: Run Cypress Tests
+    - name: Run Cypress Tests against QA
       run: |
         cd frontend
         mkdir -p cypress/results
@@ -258,7 +255,7 @@ jobs:
 
 
   # ======================================================
-  # 6) DEPLOY PROD
+  # 6) BUILD & DEPLOY TO PROD
   # ======================================================
   docker-build-push-prod:
     needs: e2e-qa
@@ -272,12 +269,12 @@ jobs:
     - name: Install Railway CLI
       run: npm i -g @railway/cli
    
-    - name: Deploy Backend PROD
+    - name: Deploy Backend PROD to Railway
       run: railway redeploy --service backend-prod --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
-    - name: Deploy Frontend PROD
+    - name: Deploy Frontend PROD to Railway
       run: railway redeploy --service frontend-prod --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

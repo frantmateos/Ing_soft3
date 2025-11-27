@@ -143,7 +143,12 @@ jobs:
         # =============================
         # GENERATE LEGIBLE COVERAGE
         # =============================
-        npx coverage-summary coverage/lcov.info > coverage-summary.txt
+        # Generate readable coverage summary without external tools
+        echo "Statements: $(grep -o 'lines\.[0-9]*\.[0-9]*' coverage/lcov.info | head -1 | cut -d. -f2)%" > coverage-summary.txt
+        echo "Branches:   $(grep -o 'branches\.[0-9]*\.[0-9]*' coverage/lcov.info | head -1 | cut -d. -f2)%" >> coverage-summary.txt
+        echo "Functions:  $(grep -o 'functions\.[0-9]*\.[0-9]*' coverage/lcov.info | head -1 | cut -d. -f2)%" >> coverage-summary.txt
+        echo "Lines:      $(grep -o 'lines\.[0-9]*\.[0-9]*' coverage/lcov.info | head -1 | cut -d. -f2)%" >> coverage-summary.txt
+
 
     - name: Upload Frontend Test Results
       uses: actions/upload-artifact@v4

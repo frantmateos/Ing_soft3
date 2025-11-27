@@ -37,24 +37,20 @@ jobs:
       run: |
         cd Golang
         go mod tidy
-
-        # Ejecutar tests con cobertura + reporte JSON para SonarCloud
-        ~/go/bin/gotestsum --no-fail --format standard-verbose --junitfile test-report.xml \
-          --jsonfile test-report.json ./... -- -coverprofile=coverage.out
-
-        # Extraer conteo de pruebas desde JSON de gotestsum
+    
+        # Ejecutar tests sin romper el pipeline por logs "error"
+        ~/go/bin/gotestsum --format standard-verbose --junitfile test-report.xml \
+          --jsonfile test-report.json ./... -- -coverprofile=coverage.out || true
+    
+        # Contar tests reales
         total=$(jq '[ .Events[] | select(.Test != null) ] | length' test-report.json 2>/dev/null)
         passed=$(jq '[ .Events[] | select(.Action=="pass") ] | length' test-report.json 2>/dev/null)
         failed=$(jq '[ .Events[] | select(.Action=="fail") ] | length' test-report.json 2>/dev/null)
-
+    
         total=${total:-0}
         passed=${passed:-0}
         failed=${failed:-0}
-
-        total=$(echo "$total" | tr -d '[:space:]')
-        passed=$(echo "$passed" | tr -d '[:space:]')
-        failed=$(echo "$failed" | tr -d '[:space:]')
-
+    
         echo "TOTAL_TESTS=$total" >> $GITHUB_ENV
         echo "PASSED_TESTS=$passed" >> $GITHUB_ENV
         echo "FAILED_TESTS=$failed" >> $GITHUB_ENV

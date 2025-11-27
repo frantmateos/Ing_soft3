@@ -1,5 +1,18 @@
 import axios from 'axios';
-const authToken = localStorage.getItem('token'); 
+
+// Configure axios baseURL from a runtime env injected file (env.js) or from build-time env.
+// If window.env.REACT_APP_BACKEND_URL is provided the app will call the backend directly
+// (cross-origin) otherwise it will use relative paths so nginx can proxy (same-origin).
+const runtimeBackend = (typeof window !== 'undefined' && window.env && window.env.REACT_APP_BACKEND_URL) || process.env.REACT_APP_BACKEND_URL || '';
+if (runtimeBackend) {
+  // ensure no trailing slash to avoid double slashes in requests
+  // Some test mocks replace `axios` with a plain object that doesn't have
+  // `defaults`. Guard against that to avoid TypeError in tests.
+  if (!axios.defaults) axios.defaults = {};
+  axios.defaults.baseURL = runtimeBackend.replace(/\/+$/, '');
+}
+
+const authToken = localStorage.getItem('token');
 export async function login(userData) {
   console.log(userData)
   try {

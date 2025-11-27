@@ -33,21 +33,17 @@ jobs:
         cd Golang
         go mod tidy
 
-        # Run tests with JSON output
+        # Ejecutar tests con JSON
         ~/go/bin/gotestsum --format testname --jsonfile test-output.json --junitfile test-report.xml -- -coverprofile=coverage.out ./...
 
-        # =============================
-        # EXTRACT TEST SUMMARY (NEW)
-        # =============================
+        # Extraer resumen
         total=$(jq '.Tests | length' test-output.json)
         passed=$(jq '[.Tests[] | select(.Action=="pass")] | length' test-output.json)
         failed=$(jq '[.Tests[] | select(.Action=="fail")] | length' test-output.json)
-        skipped=$(jq '[.Tests[] | select(.Action=="skip")] | length' test-output.json)
 
         echo "TOTAL_TESTS=$total" >> $GITHUB_ENV
         echo "PASSED_TESTS=$passed" >> $GITHUB_ENV
         echo "FAILED_TESTS=$failed" >> $GITHUB_ENV
-        echo "SKIPPED_TESTS=$skipped" >> $GITHUB_ENV
 
     - name: Upload Backend Test Results
       uses: actions/upload-artifact@v4
@@ -98,23 +94,23 @@ jobs:
         name: backend-build
         path: app
 
-    - name: Publish Coverage Summary (Backend)
+    - name: Publish Summary (Backend)
       run: |
         echo "## Backend Tests Summary" >> $GITHUB_STEP_SUMMARY
         echo "- Total tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
         echo "- Passed: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
         echo "- Failed: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
-        echo "- Skipped: $SKIPPED_TESTS" >> $GITHUB_STEP_SUMMARY
 
-        echo "## Backend Coverage" >> $GITHUB_STEP_SUMMARY
+        echo "## Backend Coverage (first 20 lines)" >> $GITHUB_STEP_SUMMARY
         cd Golang
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
         go tool cover -func=coverage.out | sed -n '1,20p' >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
 
+
   # ==========================================================
-  # 2) BUILD + TEST FRONTEND (Jest + JUnit)
+  # 2) BUILD + TEST FRONTEND — *SIN COVERAGE*
   # ==========================================================
   build-frontend:
     name: Build & Test Frontend
@@ -134,21 +130,10 @@ jobs:
         echo "REACT_APP_BACKEND_URL=${{ secrets.BACKEND_QA_URL }}" > .env
 
         npm install --legacy-peer-deps
+
+        # JUnit test report
         npm install jest-junit --legacy-peer-deps
         JEST_JUNIT_OUTPUT=./junit.xml npm test -- --watchAll=false --reporters=default --reporters=jest-junit
-
-        # Coverage
-        npm test -- --coverage --watchAll=false
-        
-        # =============================
-        # GENERATE LEGIBLE COVERAGE
-        # =============================
-        # Generate readable coverage summary without external tools
-        echo "Statements: $(grep -o 'lines\.[0-9]*\.[0-9]*' coverage/lcov.info | head -1 | cut -d. -f2)%" > coverage-summary.txt
-        echo "Branches:   $(grep -o 'branches\.[0-9]*\.[0-9]*' coverage/lcov.info | head -1 | cut -d. -f2)%" >> coverage-summary.txt
-        echo "Functions:  $(grep -o 'functions\.[0-9]*\.[0-9]*' coverage/lcov.info | head -1 | cut -d. -f2)%" >> coverage-summary.txt
-        echo "Lines:      $(grep -o 'lines\.[0-9]*\.[0-9]*' coverage/lcov.info | head -1 | cut -d. -f2)%" >> coverage-summary.txt
-
 
     - name: Upload Frontend Test Results
       uses: actions/upload-artifact@v4
@@ -156,18 +141,43 @@ jobs:
         name: frontend-tests
         path: frontend/junit.xml
 
-    - name: Publish Frontend Coverage Summary (Legible)
+    - name: SonarCloud Scan (Frontend tests only, no coverage)
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.projectKey=frantmateos_Ing_soft32
+          -Dsonar.organization=${{ secrets.SONAR_ORG }}
+          -Dsonar.projectBaseDir=frontend
+          -Dsonar.sources=src
+          -Dsonar.tests=src
+          -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx,**/__tests__/**
+          -Dsonar.exclusions=node_modules/**,build/**,../Golang/**,**/Dockerfile
+          -Dsonar.host.url=https://sonarcloud.io
+
+    - name: Build Frontend
       run: |
-        echo "## Frontend Coverage" >> $GITHUB_STEP_SUMMARY
         cd frontend
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        cat coverage-summary.txt >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        CI=false npm run build
+
+    - name: Upload Frontend Build
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/build
+
+    - name: Publish Frontend Test Report
+      uses: mikepenz/action-junit-report@v4
+      if: always()
+      with:
+        report_paths: 'frontend/junit.xml'
 
 
-  # ==========================================================
-  # 3) QA BUILD & DEPLOY
-  # ==========================================================
+
+  # ======================================================
+  # 3) BUILD & PUSH DOCKER IMAGES QA
+  # ======================================================
   docker-build-push-qa:
     needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
@@ -191,24 +201,25 @@ jobs:
       run: |
         docker push ${{ secrets.DOCKERHUB_USER }}/backend:latest
         docker push ${{ secrets.DOCKERHUB_USER }}/frontend:latest
-        
+
     - name: Install Railway CLI
       run: npm i -g @railway/cli
 
-    - name: Deploy Backend QA to Railway
+    - name: Deploy Backend QA
       run: railway redeploy --service backend-qa --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
-    - name: Deploy Frontend QA to Railway
+    - name: Deploy Frontend QA
       run: railway redeploy --service frontend-qa --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
 
-  # ======================================================
+
+  # ==========================================================
   # 5) E2E CYPRESS QA
-  # ======================================================
+  # ==========================================================
   e2e-qa:
     name: E2E Cypress Tests (QA)
     needs: docker-build-push-qa
@@ -217,7 +228,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Wait for QA to be ready
+    - name: Esperar 50 segundos para que QA levante
       run: sleep 50
   
     - name: Setup Node
@@ -229,9 +240,9 @@ jobs:
       run: |
         cd frontend
         npm install --legacy-peer-deps
-        npx cypress verify
+        npx cypress.verify
   
-    - name: Run Cypress Tests against QA
+    - name: Run Cypress Tests
       run: |
         cd frontend
         mkdir -p cypress/results
@@ -242,8 +253,9 @@ jobs:
           --config baseUrl=https://frontend-qa-production.up.railway.app
 
 
+
   # ======================================================
-  # 6) BUILD & PUSH PROD
+  # 6) DEPLOY PROD
   # ======================================================
   docker-build-push-prod:
     needs: e2e-qa
@@ -256,12 +268,12 @@ jobs:
     - name: Install Railway CLI
       run: npm i -g @railway/cli
    
-    - name: Deploy Backend PROD to Railway
+    - name: Deploy Backend PROD
       run: railway redeploy --service backend-prod --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
-    - name: Deploy Frontend PROD to Railway
+    - name: Deploy Frontend PROD
       run: railway redeploy --service frontend-prod --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

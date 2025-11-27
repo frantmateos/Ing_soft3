@@ -66,20 +66,28 @@ describe('Login como Administrador y creación de nuevo cliente (robusto)', () =
     // 🔹 Si se dibuja un Swal por detrás/adelante, cerrarlo
     closeAnySwal();
 
-    // 🔹 Asegurar que el modal está visible
-    cy.get('.modal-content', { timeout: 10000 }).should('be.visible');
+  // 🔹 Asegurar que el modal está visible (dar más tiempo en CI/entornos lentos)
+  cy.get('.modal-content', { timeout: 20000 }).should('be.visible');
 
-    // 🔹 Completar formulario
-    cy.get('input[placeholder="Nombre del Usuario"]').should('be.enabled').clear().type(nuevoUsuario.nombre);
-    cy.get('input[placeholder="Nombre del Usuario"]').clear().type(nuevoUsuario.nombre);
-    cy.get('input[placeholder="Género"]').should('be.enabled').clear().type(nuevoUsuario.genero);
-    cy.get('textarea[placeholder="Atributos"]').type(nuevoUsuario.atributos);
+    // 🔹 Completar formulario (seleccionamos inputs dentro del modal para evitar
+    //     confundirnos con inputs fuera del contexto que puedan estar presentes)
+    cy.get('.modal-content').within(() => {
+      // Esperar explicitamente a que el input principal esté presente y habilitado.
+      const nombreInput = cy.get('input[placeholder="Nombre del Usuario"]', { timeout: 15000 });
+      nombreInput.should('exist').and('be.visible').and('not.be.disabled');
+      nombreInput.clear().type(nuevoUsuario.nombre);
 
-    // Checkboxes: maneja es el primero (index 0)
-    if (nuevoUsuario.maneja) cy.get('.modal-content input[type="checkbox"]').eq(0).check({ force: true });
-    // (dejar los otros sin tocar si son false)
+      const generoInput = cy.get('input[placeholder="Género"]', { timeout: 10000 });
+      generoInput.should('exist').and('be.visible').and('not.be.disabled');
+      generoInput.clear().type(nuevoUsuario.genero);
 
-    cy.get('input[placeholder="Enfermedades"]').type(nuevoUsuario.enfermedades);
+      cy.get('textarea[placeholder="Atributos"]', { timeout: 10000 }).should('be.visible').type(nuevoUsuario.atributos);
+
+      // Checkboxes: maneja es el primero (index 0)
+      if (nuevoUsuario.maneja) cy.get('input[type="checkbox"]').eq(0).check({ force: true });
+
+      cy.get('input[placeholder="Enfermedades"]', { timeout: 10000 }).should('be.visible').type(nuevoUsuario.enfermedades);
+    });
 
     // 🔹 Enviar
     cy.get('.modal-content')

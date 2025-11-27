@@ -15,7 +15,7 @@ envsubst '${BACKEND_URL}' \
 # Create a small runtime env script that the client JS can read. This is written at container
 # start so we can inject the real backend URL coming from the environment (Railway).
 # The app can read `window.env.REACT_APP_BACKEND_URL` at runtime.
-cat > /usr/share/nginx/html/env.js <<'EOF'
+cat > /usr/share/nginx/html/env.js <<EOF
 window.env = {
   REACT_APP_BACKEND_URL: "${BACKEND_URL}"
 };

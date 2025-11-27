@@ -20,6 +20,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Install jq
+      run: sudo apt-get update && sudo apt-get install -y jq
+
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
@@ -30,17 +33,16 @@ jobs:
         cd Golang
         go mod tidy
         
-        # Ejecutar tests con JSON y coverage para sonarcloud
         go test ./... -v -coverprofile=coverage.out -json > test-report.json
 
-        # Contar tests
-        total=$(jq '[ . | select(.Test != null) ] | length' test-report.json)
-        passed=$(jq '[ . | select(.Action=="pass") ] | length' test-report.json)
-        failed=$(jq '[ . | select(.Action=="fail") ] | length' test-report.json)
+        total=$(jq '[ . | select(.Test != null) ] | length' test-report.json || echo 0)
+        passed=$(jq '[ . | select(.Action=="pass") ] | length' test-report.json || echo 0)
+        failed=$(jq '[ . | select(.Action=="fail") ] | length' test-report.json || echo 0)
 
         echo "TOTAL_TESTS=$total" >> $GITHUB_ENV
         echo "PASSED_TESTS=$passed" >> $GITHUB_ENV
         echo "FAILED_TESTS=$failed" >> $GITHUB_ENV
+
 
     - name: Upload Backend Test Results
       uses: actions/upload-artifact@v4

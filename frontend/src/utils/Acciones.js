@@ -1,11 +1,10 @@
 import axios from 'axios';
 const authToken = localStorage.getItem('token'); 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export async function login(userData) {
   console.log(userData)
   try {
     console.log("url: ",BACKEND_URL );
-    const response = await axios.post(`${BACKEND_URL}/users/login`, userData, {
+    const response = await axios.post(`/users/login`, userData, {
       credentials: "include",
     });
     console.log('Login response: ', response);
@@ -19,7 +18,7 @@ export async function login(userData) {
  
 export async function register(userData){
   try {
-    const response = await axios.post(`${BACKEND_URL}/users`, userData);
+    const response = await axios.post(`/users`, userData);
     console.log('Register response:', response);
     return response.data;
   } catch (error) {
@@ -31,7 +30,7 @@ export async function register(userData){
 export async function insertUser({nombre, genero, atributos,maneja, lentes,diabetico, enfermedades }) {
   try {
       console.log("Enviando datos al servidor:", { nombre, genero, atributos,maneja, lentes,diabetico, enfermedades });
-      const response = await axios.post(`${BACKEND_URL}/users`, 
+      const response = await axios.post(`/users`, 
           {nombre, genero, atributos,maneja, lentes,diabetico, enfermedades }, 
           {
               headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
@@ -47,7 +46,7 @@ export async function insertUser({nombre, genero, atributos,maneja, lentes,diabe
 export async function getUserById(userId) {
   try {
     console.log("este id estoy pasando: ", userId)
-    const response = await axios.get(`${BACKEND_URL}/users/${userId}`, {
+    const response = await axios.get(`/users/${userId}`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
     console.log('Hotel cargado:', response.data);
@@ -61,7 +60,7 @@ export async function getUserById(userId) {
 export async function updateUser(userId, { nombre, genero, atributos,maneja, lentes,diabetico, enfermedades, estado}) {
   try {
     console.log("este id estoy pasando: ", userId)
-    const response = await axios.put(`${BACKEND_URL}/users`, {id: userId,nombre, genero, atributos,maneja, lentes,diabetico, enfermedades,estado }, {
+    const response = await axios.put(`/users`, {id: userId,nombre, genero, atributos,maneja, lentes,diabetico, enfermedades,estado }, {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     });
     return response.data;
@@ -73,7 +72,7 @@ export async function updateUser(userId, { nombre, genero, atributos,maneja, len
 
 export async function getAllUsers() {
   try {
-    const response = await axios.get(`${BACKEND_URL}/users/all`, {
+    const response = await axios.get(`/users/all`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
     console.log('users cargados:', response.data);
@@ -91,7 +90,7 @@ export async function tokenId(){
     throw new Error('No token found');
   }
   console.log("tokens: ",token);
-  const val1 = await axios.get(`${BACKEND_URL}/users/token`, {
+  const val1 = await axios.get(`/users/token`, {
   headers: {
     'Authorization': `Bearer ${token}`
   }
@@ -103,7 +102,7 @@ return val2
 export async function tokenRole(){
 const token = localStorage.getItem('token');
 console.log("tokens: ",token);
-const val1 = await axios.get(`${BACKEND_URL}/users/token`, {
+const val1 = await axios.get(`/users/token`, {
 headers: {
   'Authorization': token
 }

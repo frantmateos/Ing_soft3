@@ -9,7 +9,9 @@ permissions:
   checks: write
   pull-requests: write
 
+
 jobs:
+
   # ==========================================================
   # 1) BUILD + TEST BACKEND (Go)
   # ==========================================================
@@ -28,33 +30,47 @@ jobs:
       with:
         go-version: "1.22"
 
-    - name: Run Backend Tests (JUnit + coverage for SonarCloud)
+    - name: Install gotestsum
+      run: go install gotest.tools/gotestsum@latest
+
+    - name: Run Backend Tests + Coverage (for SonarCloud)
       run: |
         cd Golang
         go mod tidy
-        
-        go test ./... -v -coverprofile=coverage.out -json > test-report.json
 
-        total=$(jq '[ . | select(.Test != null) ] | length' test-report.json || echo 0)
-        passed=$(jq '[ . | select(.Action=="pass") ] | length' test-report.json || echo 0)
-        failed=$(jq '[ . | select(.Action=="fail") ] | length' test-report.json || echo 0)
+        # Ejecutar tests con cobertura + reporte JSON para SonarCloud
+        ~/go/bin/gotestsum --format standard-verbose --junitfile test-report.xml \
+          --jsonfile test-report.json ./... -- -coverprofile=coverage.out
+
+        # Extraer conteo de pruebas desde JSON de gotestsum
+        total=$(jq '[ .Events[] | select(.Test != null) ] | length' test-report.json 2>/dev/null)
+        passed=$(jq '[ .Events[] | select(.Action=="pass") ] | length' test-report.json 2>/dev/null)
+        failed=$(jq '[ .Events[] | select(.Action=="fail") ] | length' test-report.json 2>/dev/null)
+
+        total=${total:-0}
+        passed=${passed:-0}
+        failed=${failed:-0}
+
+        total=$(echo "$total" | tr -d '[:space:]')
+        passed=$(echo "$passed" | tr -d '[:space:]')
+        failed=$(echo "$failed" | tr -d '[:space:]')
 
         echo "TOTAL_TESTS=$total" >> $GITHUB_ENV
         echo "PASSED_TESTS=$passed" >> $GITHUB_ENV
         echo "FAILED_TESTS=$failed" >> $GITHUB_ENV
 
-
     - name: Upload Backend Test Results
       uses: actions/upload-artifact@v4
       with:
         name: backend-tests
-        path: Golang/test-report.json
+        path: Golang/test-report.xml
 
-    - name: Upload Backend Coverage
+    - name: Upload Backend Coverage for SonarCloud
       uses: actions/upload-artifact@v4
       with:
         name: backend-coverage
         path: Golang/coverage.out
+
 
     # ------------------------------
     # SONARCLOUD BACKEND
@@ -71,8 +87,9 @@ jobs:
           -Dsonar.sources=.
           -Dsonar.go.coverage.reportPaths=coverage.out
           -Dsonar.inclusions=**/*.go
-          -Dsonar.exclusions=./frontend/**,**/Dockerfile
+          -Dsonar.exclusions=../frontend/**,**/Dockerfile
           -Dsonar.host.url=https://sonarcloud.io
+
 
     - name: Build Backend Binary
       run: |
@@ -85,12 +102,10 @@ jobs:
         name: backend-build
         path: app
 
-    # ------------------------------
-    # BACKEND TEST SUMMARY IN GITHUB
-    # ------------------------------
+
     - name: Publish Backend Test Summary
       run: |
-        echo "## Backend Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "## Backend Tests Summary" >> $GITHUB_STEP_SUMMARY
         echo "- Total tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
         echo "- Passed: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
         echo "- Failed: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
@@ -129,6 +144,7 @@ jobs:
         name: frontend-tests
         path: frontend/junit.xml
 
+
     # SONARCLOUD FRONTEND
     - name: SonarCloud Scan (Frontend)
       uses: SonarSource/sonarcloud-github-action@master
@@ -145,6 +161,7 @@ jobs:
           -Dsonar.exclusions=node_modules/**,build/**,../Golang/**,**/Dockerfile,src/setupTests.js
           -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
           -Dsonar.host.url=https://sonarcloud.io
+
 
     - name: Build Frontend
       run: |
@@ -190,17 +207,17 @@ jobs:
     - name: Push QA images
       run: |
         docker push ${{ secrets.DOCKERHUB_USER }}/backend:latest
-        docker.push ${{ secrets.DOCKERHUB_USER }}/frontend:latest
+        docker push ${{ secrets.DOCKERHUB_USER }}/frontend:latest
         
     - name: Install Railway CLI
       run: npm i -g @railway/cli
 
-    - name: Deploy Backend QA to Railway
+    - name: Deploy Backend QA
       run: railway redeploy --service backend-qa --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
-    - name: Deploy Frontend QA to Railway
+    - name: Deploy Frontend QA
       run: railway redeploy --service frontend-qa --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
@@ -230,9 +247,9 @@ jobs:
       run: |
         cd frontend
         npm install --legacy-peer-deps
-        npx cypress verify
+        npx cypress.verify
   
-    - name: Run Cypress Tests against QA
+    - name: Run Cypress Tests
       run: |
         cd frontend
         mkdir -p cypress/results
@@ -242,26 +259,29 @@ jobs:
           --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true" \
           --config baseUrl=https://frontend-qa-production.up.railway.app
 
+
+
   # ======================================================
-  # 6) BUILD & PUSH DOCKER IMAGES PROD (solo si QA pasa)
+  # 6) DEPLOY PROD
   # ======================================================
   docker-build-push-prod:
     needs: e2e-qa
     runs-on: ubuntu-latest
     environment:
       name: PROD
+
     steps:
     - uses: actions/checkout@v3
 
     - name: Install Railway CLI
       run: npm i -g @railway/cli
    
-    - name: Deploy Backend PROD to Railway
+    - name: Deploy Backend PROD
       run: railway redeploy --service backend-prod --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
-    - name: Deploy Frontend PROD to Railway
+    - name: Deploy Frontend PROD
       run: railway redeploy --service frontend-prod --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

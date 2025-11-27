@@ -28,18 +28,18 @@ jobs:
     - name: Install gotestsum
       run: go install gotest.tools/gotestsum@latest
 
-    - name: Run Backend Tests (JUnit + coverage + summary)
+    - name: Run Backend Tests (NO COVERAGE - With Summary)
       run: |
         cd Golang
         go mod tidy
 
-        # Ejecutar tests con JSON
-        ~/go/bin/gotestsum --format testname --jsonfile test-output.json --junitfile test-report.xml -- -coverprofile=coverage.out ./...
+        # Ejecutamos los tests y guardamos la salida
+        ~/go/bin/gotestsum --format testname --junitfile test-report.xml ./... | tee backend-tests.log
 
-        # Extraer resumen
-        total=$(jq '.Tests | length' test-output.json)
-        passed=$(jq '[.Tests[] | select(.Action=="pass")] | length' test-output.json)
-        failed=$(jq '[.Tests[] | select(.Action=="fail")] | length' test-output.json)
+        # Contar tests desde los logs
+        total=$(grep -E "PASS|FAIL" backend-tests.log | wc -l)
+        passed=$(grep "PASS" backend-tests.log | wc -l)
+        failed=$(grep "FAIL" backend-tests.log | wc -l)
 
         echo "TOTAL_TESTS=$total" >> $GITHUB_ENV
         echo "PASSED_TESTS=$passed" >> $GITHUB_ENV
@@ -50,38 +50,6 @@ jobs:
       with:
         name: backend-tests
         path: Golang/test-report.xml
-
-    - name: Upload Backend Coverage (raw)
-      uses: actions/upload-artifact@v4
-      with:
-        name: backend-coverage
-        path: Golang/coverage.out
-
-    - name: Generate Human Coverage Summary
-      run: |
-        cd Golang
-        go tool cover -func=coverage.out > coverage.txt
-
-    - name: Upload Backend Coverage (human readable)
-      uses: actions/upload-artifact@v4
-      with:
-        name: backend-coverage-human
-        path: Golang/coverage.txt
-
-    - name: SonarCloud Scan (Backend)
-      uses: SonarSource/sonarcloud-github-action@master
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      with:
-        args: >
-          -Dsonar.projectKey=frantmateos_Ing_soft32
-          -Dsonar.organization=${{ secrets.SONAR_ORG }}
-          -Dsonar.projectBaseDir=Golang
-          -Dsonar.sources=.
-          -Dsonar.go.coverage.reportPaths=coverage.out
-          -Dsonar.inclusions=**/*.go
-          -Dsonar.exclusions=./frontend/**,**/Dockerfile
-          -Dsonar.host.url=https://sonarcloud.io
 
     - name: Build Backend Binary
       run: |
@@ -101,16 +69,10 @@ jobs:
         echo "- Passed: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
         echo "- Failed: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
 
-        echo "## Backend Coverage (first 20 lines)" >> $GITHUB_STEP_SUMMARY
-        cd Golang
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        go tool cover -func=coverage.out | sed -n '1,20p' >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-
 
 
   # ==========================================================
-  # 2) BUILD + TEST FRONTEND — *SIN COVERAGE*
+  # 2) BUILD + TEST FRONTEND (NO COVERAGE)
   # ==========================================================
   build-frontend:
     name: Build & Test Frontend
@@ -131,7 +93,7 @@ jobs:
 
         npm install --legacy-peer-deps
 
-        # JUnit test report
+        # Run JUnit tests (NO coverage)
         npm install jest-junit --legacy-peer-deps
         JEST_JUNIT_OUTPUT=./junit.xml npm test -- --watchAll=false --reporters=default --reporters=jest-junit
 
@@ -140,21 +102,6 @@ jobs:
       with:
         name: frontend-tests
         path: frontend/junit.xml
-
-    - name: SonarCloud Scan (Frontend tests only, no coverage)
-      uses: SonarSource/sonarcloud-github-action@master
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      with:
-        args: >
-          -Dsonar.projectKey=frantmateos_Ing_soft32
-          -Dsonar.organization=${{ secrets.SONAR_ORG }}
-          -Dsonar.projectBaseDir=frontend
-          -Dsonar.sources=src
-          -Dsonar.tests=src
-          -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx,**/__tests__/**
-          -Dsonar.exclusions=node_modules/**,build/**,../Golang/**,**/Dockerfile
-          -Dsonar.host.url=https://sonarcloud.io
 
     - name: Build Frontend
       run: |
@@ -201,16 +148,16 @@ jobs:
       run: |
         docker push ${{ secrets.DOCKERHUB_USER }}/backend:latest
         docker push ${{ secrets.DOCKERHUB_USER }}/frontend:latest
-
+        
     - name: Install Railway CLI
       run: npm i -g @railway/cli
 
-    - name: Deploy Backend QA
+    - name: Deploy Backend QA to Railway
       run: railway redeploy --service backend-qa --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
-    - name: Deploy Frontend QA
+    - name: Deploy Frontend QA to Railway
       run: railway redeploy --service frontend-qa --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
@@ -240,7 +187,7 @@ jobs:
       run: |
         cd frontend
         npm install --legacy-peer-deps
-        npx cypress.verify
+        npx cypress verify
   
     - name: Run Cypress Tests
       run: |

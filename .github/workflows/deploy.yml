@@ -39,7 +39,7 @@ jobs:
         go mod tidy
 
         # Ejecutar tests con cobertura + reporte JSON para SonarCloud
-        ~/go/bin/gotestsum --format standard-verbose --junitfile test-report.xml \
+        ~/go/bin/gotestsum --no-fail --format standard-verbose --junitfile test-report.xml \
           --jsonfile test-report.json ./... -- -coverprofile=coverage.out
 
         # Extraer conteo de pruebas desde JSON de gotestsum

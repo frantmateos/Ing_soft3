@@ -25,19 +25,18 @@ jobs:
       with:
         go-version: "1.22"
 
-    - name: Install gotestsum
-      run: go install gotest.tools/gotestsum@latest
-
-    - name: Run Backend Tests (NO COVERAGE - With Summary)
+    - name: Run Backend Tests (JUnit + coverage for SonarCloud)
       run: |
         cd Golang
         go mod tidy
+        
+        # Ejecutar tests con JSON y coverage para sonarcloud
+        go test ./... -v -coverprofile=coverage.out -json > test-report.json
 
-        ~/go/bin/gotestsum --format testname --junitfile test-report.xml ./... | tee backend-tests.log
-
-        total=$(grep -E "PASS|FAIL" backend-tests.log | wc -l)
-        passed=$(grep "PASS" backend-tests.log | wc -l)
-        failed=$(grep "FAIL" backend-tests.log | wc -l)
+        # Contar tests
+        total=$(jq '[ . | select(.Test != null) ] | length' test-report.json)
+        passed=$(jq '[ . | select(.Action=="pass") ] | length' test-report.json)
+        failed=$(jq '[ . | select(.Action=="fail") ] | length' test-report.json)
 
         echo "TOTAL_TESTS=$total" >> $GITHUB_ENV
         echo "PASSED_TESTS=$passed" >> $GITHUB_ENV
@@ -47,11 +46,17 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: backend-tests
-        path: Golang/test-report.xml
+        path: Golang/test-report.json
 
-    # ░░░░░░░░░░░░░░░░░░░
+    - name: Upload Backend Coverage
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-coverage
+        path: Golang/coverage.out
+
+    # ------------------------------
     # SONARCLOUD BACKEND
-    # ░░░░░░░░░░░░░░░░░░░
+    # ------------------------------
     - name: SonarCloud Scan (Backend)
       uses: SonarSource/sonarcloud-github-action@master
       env:
@@ -62,8 +67,9 @@ jobs:
           -Dsonar.organization=${{ secrets.SONAR_ORG }}
           -Dsonar.projectBaseDir=Golang
           -Dsonar.sources=.
+          -Dsonar.go.coverage.reportPaths=coverage.out
           -Dsonar.inclusions=**/*.go
-          -Dsonar.exclusions=../frontend/**,**/Dockerfile
+          -Dsonar.exclusions=./frontend/**,**/Dockerfile
           -Dsonar.host.url=https://sonarcloud.io
 
     - name: Build Backend Binary
@@ -77,9 +83,12 @@ jobs:
         name: backend-build
         path: app
 
-    - name: Publish Summary (Backend)
+    # ------------------------------
+    # BACKEND TEST SUMMARY IN GITHUB
+    # ------------------------------
+    - name: Publish Backend Test Summary
       run: |
-        echo "## Backend Tests Summary" >> $GITHUB_STEP_SUMMARY
+        echo "## Backend Test Summary" >> $GITHUB_STEP_SUMMARY
         echo "- Total tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
         echo "- Passed: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
         echo "- Failed: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
@@ -87,7 +96,7 @@ jobs:
 
 
   # ==========================================================
-  # 2) BUILD + TEST FRONTEND (React)
+  # 2) BUILD + TEST FRONTEND (Jest + JUnit)
   # ==========================================================
   build-frontend:
     name: Build & Test Frontend
@@ -109,7 +118,8 @@ jobs:
         npm install --legacy-peer-deps
         npm install jest-junit --legacy-peer-deps
 
-        JEST_JUNIT_OUTPUT=./junit.xml npm test -- --watchAll=false --reporters=default --reporters=jest-junit
+        # Run tests with coverage for SonarCloud
+        JEST_JUNIT_OUTPUT=./junit.xml npm test -- --coverage --watchAll=false --reporters=default --reporters=jest-junit
 
     - name: Upload Frontend Test Results
       uses: actions/upload-artifact@v4
@@ -117,9 +127,7 @@ jobs:
         name: frontend-tests
         path: frontend/junit.xml
 
-    # ░░░░░░░░░░░░░░░░░░░
     # SONARCLOUD FRONTEND
-    # ░░░░░░░░░░░░░░░░░░░
     - name: SonarCloud Scan (Frontend)
       uses: SonarSource/sonarcloud-github-action@master
       env:
@@ -132,7 +140,8 @@ jobs:
           -Dsonar.sources=src
           -Dsonar.tests=src
           -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx,**/__tests__/**
-          -Dsonar.exclusions=node_modules/**,build/**,../Golang/**,**/Dockerfile
+          -Dsonar.exclusions=node_modules/**,build/**,../Golang/**,**/Dockerfile,src/setupTests.js
+          -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
           -Dsonar.host.url=https://sonarcloud.io
 
     - name: Build Frontend
@@ -164,7 +173,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Docker Login
-      run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker.login -u "${{ secrets.DOCKERHUB_USER }}" --password-stdin
+      run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USER }}" --password-stdin
 
     - name: Build Backend QA
       run: docker build -t ${{ secrets.DOCKERHUB_USER }}/backend:latest -f Golang/Dockerfile .
@@ -179,7 +188,7 @@ jobs:
     - name: Push QA images
       run: |
         docker push ${{ secrets.DOCKERHUB_USER }}/backend:latest
-        docker push ${{ secrets.DOCKERHUB_USER }}/frontend:latest
+        docker.push ${{ secrets.DOCKERHUB_USER }}/frontend:latest
         
     - name: Install Railway CLI
       run: npm i -g @railway/cli
@@ -219,9 +228,9 @@ jobs:
       run: |
         cd frontend
         npm install --legacy-peer-deps
-        npx cypress.verify
+        npx cypress verify
   
-    - name: Run Cypress Tests
+    - name: Run Cypress Tests against QA
       run: |
         cd frontend
         mkdir -p cypress/results
@@ -231,10 +240,8 @@ jobs:
           --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true" \
           --config baseUrl=https://frontend-qa-production.up.railway.app
 
-
-
   # ======================================================
-  # 6) DEPLOY PROD
+  # 6) BUILD & PUSH DOCKER IMAGES PROD (solo si QA pasa)
   # ======================================================
   docker-build-push-prod:
     needs: e2e-qa
@@ -247,12 +254,12 @@ jobs:
     - name: Install Railway CLI
       run: npm i -g @railway/cli
    
-    - name: Deploy Backend PROD
+    - name: Deploy Backend PROD to Railway
       run: railway redeploy --service backend-prod --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
-    - name: Deploy Frontend PROD
+    - name: Deploy Frontend PROD to Railway
       run: railway redeploy --service frontend-prod --yes
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

@@ -3,7 +3,6 @@ const authToken = localStorage.getItem('token');
 export async function login(userData) {
   console.log(userData)
   try {
-    console.log("url: ",BACKEND_URL );
     const response = await axios.post(`/users/login`, userData, {
       credentials: "include",
     });

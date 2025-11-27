@@ -34,7 +34,7 @@ describe('Acciones util functions', () => {
     expect(res).toBe('abc');
     expect(localStorage.getItem('token')).toBe('abc');
     expect(mockAxios.post).toHaveBeenCalledWith(
-      'https://qa.backend/users/login',
+      '/users/login',
       expect.objectContaining({ nombre: 'u', password: 'p' }),
       expect.any(Object)
     );
@@ -55,7 +55,7 @@ describe('Acciones util functions', () => {
 
     expect(out).toEqual({ ok: true, id: 1 });
     expect(mockAxios.post).toHaveBeenCalledWith(
-      'https://prod.backend/users',
+      '/users',
       expect.objectContaining({ nombre: 'n' })
     );
   });
@@ -77,7 +77,7 @@ describe('Acciones util functions', () => {
     expect(out).toEqual([{ id: 1 }]);
     // (Esta aserción ya estaba corregida y pasaba)
     expect(mockAxios.get).toHaveBeenCalledWith(
-      'https://b/users/all',
+      '/users/all',
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'Bearer tkn' }),
       })
@@ -103,7 +103,7 @@ describe('Acciones util functions', () => {
 
     expect(out).toEqual({ ok: true });
     expect(mockAxios.post).toHaveBeenCalledWith(
-      'https://x/users',
+      '/users',
       expect.objectContaining({ nombre: 'n', genero: 'm' }),
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'Bearer mytoken' }),
@@ -127,7 +127,7 @@ describe('Acciones util functions', () => {
 
     expect(data).toEqual({ id: 7 });
     expect(mockAxios.get).toHaveBeenCalledWith(
-      'https://u/users/7',
+      '/users/7',
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'Bearer tok' }),
       })
@@ -152,7 +152,7 @@ describe('Acciones util functions', () => {
 
     expect(data).toEqual({ ok: 1 });
     expect(mockAxios.put).toHaveBeenCalledWith(
-      'https://upd/users',
+      '/users',
       expect.objectContaining({ id: 9, nombre: 'n', genero: 'f', estado: true }),
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'Bearer tok2' }),
@@ -181,7 +181,7 @@ describe('Acciones util functions', () => {
 
     expect(id).toBe(42);
     expect(mockAxios.get).toHaveBeenCalledWith(
-      'https://z/users/token',
+      '/users/token',
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'Bearer T' }),
       })
@@ -197,7 +197,7 @@ describe('Acciones util functions', () => {
 
     expect(r).toBe(false);
     expect(mockAxios.get).toHaveBeenCalledWith(
-      'https://z/users/token',
+      '/users/token',
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'ZZ' }),
       })

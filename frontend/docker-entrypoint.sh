@@ -1,8 +1,7 @@
 #!/bin/sh
 set -e
 
-export BACKEND_URL="${REACT_APP_BACKEND_URL
-:-http://localhost:8080}"
+export BACKEND_URL="${REACT_APP_BACKEND_URL:-http://localhost:8080}"
 
 echo "Inyectando BACKEND_URL=${BACKEND_URL}"
 

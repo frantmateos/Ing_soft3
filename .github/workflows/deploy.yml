@@ -29,33 +29,17 @@ jobs:
     - name: Install gotestsum
       run: go install gotest.tools/gotestsum@latest
 
-    - name: Run Backend Tests (coverage + json + summary)
+
+    # ==========================================================
+    # 1) TESTS PARA COVERAGE (única ejecución válida para sonar)
+    # ==========================================================
+    - name: Run Tests for Coverage (SonarCloud)
       run: |
         cd Golang
         go mod tidy
 
-        # 📌 Ejecutar tests UNA SOLA VEZ:
-        #    - genera JSON para gotestsum
-        #    - genera coverage válido para Sonar
-        go test ./... -coverprofile=coverage.out -json > test-report.json
-
-        # 📌 Usar gotestsum para analizar test-report.json SIN ejecutar tests otra vez
-        ~/go/bin/gotestsum --raw-command --format testname --junitfile test-report.xml < test-report.json | tee backend-tests.log
-
-        # 📌 Calcular métricas de PASSED / FAILED
-        total=$(grep -E "\"Test\"" test-report.json | wc -l)
-        passed=$(grep "\"Action\":\"pass\"" test-report.json | wc -l)
-        failed=$(grep "\"Action\":\"fail\"" test-report.json | wc -l)
-
-        echo "TOTAL_TESTS=$total" >> $GITHUB_ENV
-        echo "PASSED_TESTS=$passed" >> $GITHUB_ENV
-        echo "FAILED_TESTS=$failed" >> $GITHUB_ENV
-
-    - name: Upload Backend Test Results
-      uses: actions/upload-artifact@v4
-      with:
-        name: backend-tests
-        path: Golang/test-report.xml
+        # Tests SOLO para generar coverage para SonarCloud
+        go test ./... -coverprofile=coverage.out
 
     - name: Upload Backend Coverage
       uses: actions/upload-artifact@v4
@@ -63,6 +47,37 @@ jobs:
         name: backend-coverage
         path: Golang/coverage.out
 
+
+    # ==========================================================
+    # 2) TESTS PARA GOTESTSUM (solo logs, NO coverage)
+    # ==========================================================
+    - name: Run Tests for Reports (gotestsum)
+      run: |
+        cd Golang
+
+        # Ahora tests separados SIN coverage
+        ~/go/bin/gotestsum --format testname --junitfile test-report.xml ./... | tee backend-tests.log
+
+        # calcular total/passed/failed
+        total=$(grep -E "PASS|FAIL" backend-tests.log | wc -l)
+        passed=$(grep "PASS" backend-tests.log | wc -l)
+        failed=$(grep "FAIL" backend-tests.log | wc -l)
+
+        echo "TOTAL_TESTS=$total" >> $GITHUB_ENV
+        echo "PASSED_TESTS=$passed" >> $GITHUB_ENV
+        echo "FAILED_TESTS=$failed" >> $GITHUB_ENV
+
+
+    - name: Upload Backend Test Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-tests
+        path: Golang/test-report.xml
+
+
+    # ==========================================================
+    # 3) SONARCLOUD
+    # ==========================================================
     - name: SonarCloud Scan (Backend)
       uses: SonarSource/sonarcloud-github-action@master
       env:
@@ -78,6 +93,10 @@ jobs:
           -Dsonar.exclusions=./frontend/**,**/Dockerfile
           -Dsonar.host.url=https://sonarcloud.io
 
+
+    # ==========================================================
+    # 4) BUILD
+    # ==========================================================
     - name: Build Backend Binary
       run: |
         cd Golang
@@ -89,12 +108,17 @@ jobs:
         name: backend-build
         path: app
 
+
+    # ==========================================================
+    # 5) RESUMEN TESTS
+    # ==========================================================
     - name: Publish Summary (Backend Tests)
       run: |
         echo "## Backend Tests Summary" >> $GITHUB_STEP_SUMMARY
         echo "- Total tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
         echo "- Passed: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
         echo "- Failed: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
+
 
 
 

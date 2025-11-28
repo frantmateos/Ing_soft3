@@ -4,10 +4,12 @@ on:
   push:
     branches: ["main", "Task-1"]
 
+    
 permissions:
   contents: read
   checks: write
   pull-requests: write
+
 
 
 jobs:
@@ -26,42 +28,24 @@ jobs:
       with:
         go-version: "1.22"
 
-    - name: Install gotestsum
-      run: go install gotest.tools/gotestsum@latest
-
-    - name: Run Backend Tests (With Summary + Coverage for Sonar)
+    - name: Run Backend Tests (JUnit + coverage)
       run: |
         cd Golang
         go mod tidy
-
-        # Ejecutar tests con gotestsum (para generar log + junit)
-        ~/go/bin/gotestsum --format testname --junitfile test-report.xml ./... | tee backend-tests.log
-
-        # Generar coverage para SonarCloud
-        go test ./... -coverprofile=coverage.out
-
-        # Contar resultados
-        total=$(grep -E "PASS|FAIL" backend-tests.log | wc -l)
-        passed=$(grep "PASS" backend-tests.log | wc -l)
-        failed=$(grep "FAIL" backend-tests.log | wc -l)
-
-        echo "TOTAL_TESTS=$total" >> $GITHUB_ENV
-        echo "PASSED_TESTS=$passed" >> $GITHUB_ENV
-        echo "FAILED_TESTS=$failed" >> $GITHUB_ENV
+        go test ./... -v -coverprofile=coverage.out -json > test-report.json
 
     - name: Upload Backend Test Results
       uses: actions/upload-artifact@v4
       with:
         name: backend-tests
-        path: Golang/test-report.xml
+        path: Golang/test-report.json
 
-    - name: Upload Backend Coverage (for Sonar)
+    - name: Upload Backend Coverage
       uses: actions/upload-artifact@v4
       with:
         name: backend-coverage
         path: Golang/coverage.out
-
-    # ░░░░ SONARCLOUD (backend) ░░░░
+        
     - name: SonarCloud Scan (Backend)
       uses: SonarSource/sonarcloud-github-action@master
       env:
@@ -77,6 +61,8 @@ jobs:
           -Dsonar.exclusions=./frontend/**,**/Dockerfile
           -Dsonar.host.url=https://sonarcloud.io
 
+
+
     - name: Build Backend Binary
       run: |
         cd Golang
@@ -87,18 +73,20 @@ jobs:
       with:
         name: backend-build
         path: app
+        
 
-    - name: Publish Summary (Backend Tests)
+    - name: Publish Coverage Summary (Backend)
       run: |
-        echo "## Backend Tests Summary" >> $GITHUB_STEP_SUMMARY
-        echo "- Total tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
-        echo "- Passed: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
-        echo "- Failed: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
+        echo "## Backend Coverage" >> $GITHUB_STEP_SUMMARY
+        cd Golang
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        head -n 20 coverage.out >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
 
 
   # ==========================================================
-  # 2) BUILD + TEST FRONTEND (React)
+  # 2) BUILD + TEST FRONTEND (Jest + JUnit)
   # ==========================================================
   build-frontend:
     name: Build & Test Frontend
@@ -116,13 +104,12 @@ jobs:
       run: |
         cd frontend
         echo "REACT_APP_BACKEND_URL=${{ secrets.BACKEND_QA_URL }}" > .env
+
         npm install --legacy-peer-deps
+
+        # Run tests with JUnit report
         npm install jest-junit --legacy-peer-deps
-
-        # Ejecutar tests con reporte JUnit
         JEST_JUNIT_OUTPUT=./junit.xml npm test -- --watchAll=false --reporters=default --reporters=jest-junit
-
-        # Coverage (solo para Sonar, sin mostrar en GitHub)
         npm test -- --coverage --watchAll=false
 
     - name: Upload Frontend Test Results
@@ -131,13 +118,6 @@ jobs:
         name: frontend-tests
         path: frontend/junit.xml
 
-    - name: Upload Frontend Coverage (for Sonar)
-      uses: actions/upload-artifact@v4
-      with:
-        name: frontend-coverage
-        path: frontend/coverage/lcov.info
-
-    # ░░░░ SONARCLOUD (frontend) ░░░░
     - name: SonarCloud Scan (Frontend)
       uses: SonarSource/sonarcloud-github-action@master
       env:
@@ -153,6 +133,8 @@ jobs:
           -Dsonar.exclusions=node_modules/**,build/**,../Golang/**,**/Dockerfile,src/setupTests.js
           -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
           -Dsonar.host.url=https://sonarcloud.io
+
+
 
     - name: Build Frontend
       run: |
@@ -171,6 +153,14 @@ jobs:
       with:
         report_paths: 'frontend/junit.xml'
 
+    - name: Publish Coverage Summary (Frontend)
+      run: |
+        echo "## Frontend Coverage" >> $GITHUB_STEP_SUMMARY
+        cd frontend
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        grep -R "" coverage/lcov.info | head -n 20 >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
 
 
   # ======================================================
@@ -179,31 +169,33 @@ jobs:
   docker-build-push-qa:
     needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
 
     - name: Docker Login
       run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USER }}" --password-stdin
 
+    # BACKEND QA
     - name: Build Backend QA
       run: |
         docker build -t ${{ secrets.DOCKERHUB_USER }}/backend:latest -f Golang/Dockerfile .
 
+    # FRONTEND QA
     - name: Build Frontend QA
       run: |
         docker build \
           -t ${{ secrets.DOCKERHUB_USER }}/frontend:latest \
           --build-arg REACT_APP_BACKEND_URL=${{ secrets.BACKEND_QA_URL }} \
           -f frontend/Dockerfile frontend/
-
+        
     - name: Push QA images
       run: |
         docker push ${{ secrets.DOCKERHUB_USER }}/backend:latest
         docker push ${{ secrets.DOCKERHUB_USER }}/frontend:latest
-
+        
     - name: Install Railway CLI
       run: npm i -g @railway/cli
+
 
     - name: Deploy Backend QA to Railway
       run: railway redeploy --service backend-qa --yes
@@ -252,17 +244,14 @@ jobs:
           --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true" \
           --config baseUrl=https://frontend-qa-production.up.railway.app
 
-
-
   # ======================================================
-  # 6) BUILD & DEPLOY TO PROD
+  # 6) BUILD & PUSH DOCKER IMAGES PROD (solo si QA pasa)
   # ======================================================
   docker-build-push-prod:
     needs: e2e-qa
     runs-on: ubuntu-latest
     environment:
       name: PROD
-
     steps:
     - uses: actions/checkout@v3
 

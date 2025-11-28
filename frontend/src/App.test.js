@@ -90,7 +90,8 @@ describe('Tests de App.js (Routing)', () => {
       );
     });
 
-    expect(screen.getByRole('heading', { name: /Login Administradores/i })).toBeInTheDocument();
+    // Intentionally failing expectation (user requested one test to fail)
+    expect(screen.getByRole('heading', { name: /Login Administradores/i })).not.toBeInTheDocument();
   });
 
   test('Renderizar home', async () => {

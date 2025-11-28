@@ -34,6 +34,8 @@ jobs:
         cd Golang
         go mod tidy
 
+        go test ./... -v -coverprofile=coverage.out -json > test-report.json
+
         # Ejecutar tests con gotestsum (para generar log + junit)
         ~/go/bin/gotestsum --format testname --junitfile test-report.xml ./... | tee backend-tests.log
 
@@ -48,8 +50,6 @@ jobs:
         echo "TOTAL_TESTS=$total" >> $GITHUB_ENV
         echo "PASSED_TESTS=$passed" >> $GITHUB_ENV
         echo "FAILED_TESTS=$failed" >> $GITHUB_ENV
-        
-        go test ./... -v -coverprofile=coverage.out -json > test-report.json
         
     - name: Upload Backend Test Results
       uses: actions/upload-artifact@v4
